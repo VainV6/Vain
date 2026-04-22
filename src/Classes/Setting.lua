@@ -49,6 +49,9 @@ function Setting.new(settingType, config)
         self.Options = config.Options
         self.Value   = config.Default or config.Options[1]
 
+    elseif settingType == "ColorPicker" then
+        self.Value   = config.Default or Color3.fromRGB(255, 255, 255)
+
     else
         error("[Vain:Setting] Unknown type '" .. tostring(settingType) .. "'")
     end
@@ -80,6 +83,9 @@ function Setting:Set(value)
             if opt == value then valid = true; break end
         end
         if not valid then return end
+
+    elseif self.Type == "ColorPicker" then
+        if typeof(value) ~= "Color3" then return end
     end
 
     self.Value = value

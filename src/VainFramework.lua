@@ -134,11 +134,17 @@ function VainFramework:BindKey(keyCode, fn)
     self._input:BindKey(keyCode, fn)
 end
 
+function VainFramework:SetToggleKey(keyCode)
+    self._input:SetUIToggleKey(keyCode)
+end
+
+function VainFramework:SetFPSVisible(visible)
+    self._window:SetFPSVisible(visible)
+end
+
 function VainFramework:Destroy()
     self._input:Stop()
-    if self._window._gui then
-        self._window._gui:Destroy()
-    end
+    self._window:Destroy()
 end
 
 return VainFramework

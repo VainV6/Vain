@@ -1,0 +1,7 @@
+std = "roblox"
+
+[lints]
+multiple_statements         = "allow"
+simplify_table_constructor  = "allow"
+unused_variable             = "allow"
+roblox_incorrect_roact_usage = "allow"
