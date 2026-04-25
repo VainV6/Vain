@@ -78,6 +78,7 @@ function Window.new(config, registry)
     self._gui              = nil
     self._mainFrame        = nil   -- outer border frame (drag / show-hide handle)
     self._shadow           = nil
+    self._header           = nil
     self._sidebar          = nil
     self._moduleScroll     = nil
     self._tooltipFrame     = nil
@@ -121,6 +122,7 @@ function Window:_build()
     outer.AnchorPoint             = Vector2.new(0.5, 0.5)
     outer.Position                = UDim2.fromScale(0.5, 0.5)
     outer.BackgroundColor3        = BORDER_COLOR
+    outer.BackgroundTransparency  = 0
     outer.BorderSizePixel         = 0
     outer.Visible                 = false
     outer.Parent                  = gui
@@ -217,6 +219,7 @@ function Window:_buildHeader(parent)
     header.BorderSizePixel    = 0
     header.Parent             = parent
     corner(header, Theme.RadiusLG)
+    self._header              = header
 
     -- Square off header bottom so it sits flush against content
     local sq                  = Instance.new("Frame")
@@ -764,14 +767,15 @@ function Window:_buildModuleRow(module)
 end
 
 -- ── Drag ──────────────────────────────────────────────────────────────────────
--- Fires from anywhere in the window. AnchorPoint stays (0.5, 0.5) throughout;
--- dragOffset (center minus click position) prevents any jump on first move.
+-- Drag is only initiated from the header bar, so clicking module buttons never
+-- moves the window. AnchorPoint stays (0.5, 0.5); dragOffset keeps the grab
+-- point fixed under the cursor so there is no jump on first move.
 
 function Window:_setupDrag(outer)
     local dragging   = false
     local dragOffset = Vector2.zero
 
-    outer.InputBegan:Connect(function(inp)
+    self._header.InputBegan:Connect(function(inp)
         if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
         dragging   = true
         local mp   = Vector2.new(inp.Position.X, inp.Position.Y)
@@ -781,9 +785,9 @@ function Window:_setupDrag(outer)
 
     UserInputService.InputChanged:Connect(function(inp)
         if not dragging or inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local mp          = Vector2.new(inp.Position.X, inp.Position.Y)
-        local newCenter   = mp + dragOffset
-        outer.Position    = UDim2.fromOffset(newCenter.X, newCenter.Y)
+        local mp              = Vector2.new(inp.Position.X, inp.Position.Y)
+        local newCenter       = mp + dragOffset
+        outer.Position        = UDim2.fromOffset(newCenter.X, newCenter.Y)
         self._shadow.Position = UDim2.fromOffset(newCenter.X, newCenter.Y)
     end)
 
