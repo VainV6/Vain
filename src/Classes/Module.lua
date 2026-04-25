@@ -46,6 +46,12 @@ function Module.new(config)
     self._onDisable     = config.OnDisable or function() end
     self._onExecute     = config.OnExecute or function() end
 
+    -- Honour DefaultEnabled so modules can start in the ON state
+    if config.DefaultEnabled == true then
+        self.Enabled = true
+        self._onEnable()
+    end
+
     return self
 end
 

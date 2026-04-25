@@ -132,6 +132,10 @@ end
 
 -- ── Utilities ────────────────────────────────────────────────────────────────
 
+function VainFramework:SetNotificationsEnabled(enabled)
+    Toast.setEnabled(enabled)
+end
+
 function VainFramework:GetModule(name)
     return self._registry:GetModule(name)
 end
@@ -152,6 +156,7 @@ end
 function VainFramework:Destroy()
     self._input:Stop()
     self._window:Destroy()
+    Toast.unmount()
 end
 
 return VainFramework

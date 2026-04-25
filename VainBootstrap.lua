@@ -254,8 +254,7 @@ LoadingScreen:Show(function()
 
     local Vain = VainFramework.new({
         Title     = "Vain",
-        Subtitle  = "hub",
-        ToggleKey = Enum.KeyCode.RightControl,
+        ToggleKey = Enum.KeyCode.RightShift,
     })
 
     -- ── Combat ─────────────────────────────────────────────────────────────────
@@ -358,50 +357,55 @@ LoadingScreen:Show(function()
     -- ── Settings ────────────────────────────────────────────────────────────────
     local Settings = Vain:NewCategory("Settings", "rbxassetid://6031280882")
 
-    local UITheme = Settings:AddModule({
-        Name     = "UI Theme",
-        Behavior = "Toggleable",
-        OnEnable  = function() end,
-        OnDisable = function() end,
-    })
-    UITheme:AddSetting("ColorPicker", {
-        Name = "Accent Color", Default = Color3.fromRGB(58, 111, 216),
-        Callback = function(v) loadMod("Theme").Accent = v end,
-    })
-
     local MenuKey = Settings:AddModule({
-        Name     = "Menu Keybind",
-        Behavior = "Toggleable",
-        OnEnable  = function() end,
-        OnDisable = function() end,
+        Name        = "Menu Keybind",
+        Description = "Key that opens/closes this window",
+        Behavior    = "Toggleable",
+        OnEnable    = function() end,
+        OnDisable   = function() end,
     })
     MenuKey:AddSetting("Input", {
-        Name = "Toggle Key", Default = "RightControl", IsKeybind = true,
+        Name = "Toggle Key", Default = "RightShift", IsKeybind = true,
         Callback = function(v)
             local kc = Enum.KeyCode[v]
             if kc then Vain:SetToggleKey(kc) end
         end,
     })
 
-    local Notifs = Settings:AddModule({
-        Name     = "Notifications",
-        Behavior = "Toggleable",
-        OnEnable  = function() end,
-        OnDisable = function() end,
-    })
-    Notifs:AddSetting("Toggle", { Name = "Enabled", Default = true, Callback = function() end })
-
     Settings:AddModule({
-        Name     = "FPS Counter",
-        Behavior = "Toggleable",
-        OnEnable  = function() Vain:SetFPSVisible(true)  end,
-        OnDisable = function() Vain:SetFPSVisible(false) end,
+        Name           = "Notifications",
+        Description    = "Toggle toast notifications for module state changes",
+        Behavior       = "Toggleable",
+        DefaultEnabled = true,
+        OnEnable       = function() Vain:SetNotificationsEnabled(true)  end,
+        OnDisable      = function() Vain:SetNotificationsEnabled(false) end,
     })
 
     Settings:AddModule({
-        Name      = "Uninject",
-        Behavior  = "Executable",
-        OnExecute = function()
+        Name        = "FPS Counter",
+        Description = "Show frames-per-second in the window header",
+        Behavior    = "Toggleable",
+        OnEnable    = function() Vain:SetFPSVisible(true)  end,
+        OnDisable   = function() Vain:SetFPSVisible(false) end,
+    })
+
+    local UITheme = Settings:AddModule({
+        Name        = "UI Theme",
+        Description = "Customise the accent colour",
+        Behavior    = "Toggleable",
+        OnEnable    = function() end,
+        OnDisable   = function() end,
+    })
+    UITheme:AddSetting("ColorPicker", {
+        Name = "Accent Color", Default = Color3.fromRGB(58, 111, 216),
+        Callback = function(v) loadMod("Theme").Accent = v end,
+    })
+
+    Settings:AddModule({
+        Name        = "Uninject",
+        Description = "Remove Vain from the game entirely",
+        Behavior    = "Executable",
+        OnExecute   = function()
             for tag in pairs(ESPObjects) do clearESP(tag) end
             disableAimAssist()
             Vain:Destroy()

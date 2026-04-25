@@ -27,8 +27,28 @@ local SCREEN_PAD = 16
 local toastContainer = nil
 local nextId         = 0
 local activeToasts   = {}   -- { id, frame, height, timer, progressTween }
+local toastsEnabled  = true
 
 local Toast = {}
+
+function Toast.setEnabled(v)
+    toastsEnabled = v
+end
+
+function Toast.unmount()
+    for _, entry in ipairs(activeToasts) do
+        if entry.timer then pcall(task.cancel, entry.timer) end
+        if entry.progressTween then pcall(function() entry.progressTween:Cancel() end) end
+        if entry.frame and entry.frame.Parent then entry.frame:Destroy() end
+    end
+    activeToasts = {}
+    if toastContainer then
+        local gui = toastContainer.Parent
+        toastContainer:Destroy()
+        toastContainer = nil
+        if gui and gui.Parent then gui:Destroy() end
+    end
+end
 
 local function nextToastId()
     nextId += 1
@@ -74,6 +94,7 @@ local function dismiss(id)
 end
 
 function Toast.show(message, options)
+    if not toastsEnabled then return -1 end
     if not toastContainer then
         warn("[Vain:Toast] call Toast.mount() before Toast.show()")
         return -1

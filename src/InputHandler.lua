@@ -45,17 +45,18 @@ end
 
 function InputHandler:Start()
     self._connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        -- Ignore chat / core UI inputs
-        if gameProcessed then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
         local key = input.KeyCode
 
-        -- 1. Global UI toggle
+        -- 1. Global UI toggle — fires even when chat/gui has focus
         if key == self._uiToggleKey then
             if self._uiToggleFn then self._uiToggleFn() end
             return
         end
+
+        -- Remaining binds respect gameProcessed (don't fire while typing)
+        if gameProcessed then return end
 
         -- 2. Custom binds
         if self._customBinds[key] then
