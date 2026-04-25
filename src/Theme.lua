@@ -109,13 +109,13 @@ Theme.Toast = {
 
 -- ── Layout constants ─────────────────────────────────────────────────────────
 Theme.Window = {
-    Width      = 580,
-    Height     = 430,
-    SidebarW   = 132,
-    HeaderH    = 50,
-    ModuleH    = 40,
-    Padding    = 10,
-    SearchH    = 38,
+    Width      = 740,
+    Height     = 460,
+    SidebarW   = 158,
+    HeaderH    = 52,
+    ModuleH    = 42,
+    Padding    = 12,
+    SearchH    = 36,
 }
 
 Theme.SettingH = {
