@@ -1,13 +1,11 @@
 --[[
-    UI/Window.lua  –  Vain hub window (v2).
+    UI/Window.lua  –  Vain hub window.
 
-    Key design choices vs. v1:
-      • No Windows-style chrome buttons.  Close/uninject lives in the Settings
-        category.  A single chevron (▾/▸) in the header collapses the window
-        to a floating title strip; click again to expand.
-      • FPS counter in the header, colour-coded green/yellow/red.
-      • Search bar at the top of the content area filters module rows live.
-      • All corner radii pulled from Theme (larger than v1).
+    Visual design mirrors the rogue-tower-defense component library:
+      • Header  – accent pip, title, FPS readout, collapse chevron
+      • Sidebar – category buttons with Lighten hover + active indicator bar
+      • Content – search bar, scrolling module list
+      • Module rows – SliderToggle pill, RUN button with Flash animation, Toast on toggle
 
     Public API:
         Window.new(config, registry) → Window
@@ -24,8 +22,11 @@ local Players          = game:GetService("Players")
 
 local Theme      = require(script.Parent.Parent.Theme)
 local Components = require(script.Parent.Components)
+local Toast      = require(script.Parent.Toast)
 
-local W = Theme.Window
+local W  = Theme.Window
+local BT = Theme.Button
+local TG = Theme.Toggle
 
 local Window  = {}
 Window.__index = Window
@@ -57,6 +58,16 @@ local function pad(parent, l, r, t, b)
     p.Parent = parent
 end
 
+-- Lighten-style hover for a TextButton (matches rogue-tower-defense Button hover)
+local function addButtonHover(btn, bgNormal, bgHover)
+    btn.MouseEnter:Connect(function()
+        tw(btn, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {BackgroundColor3 = bgHover}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        tw(btn, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {BackgroundColor3 = bgNormal}):Play()
+    end)
+end
+
 -- ── Constructor ───────────────────────────────────────────────────────────────
 
 function Window.new(config, registry)
@@ -67,7 +78,7 @@ function Window.new(config, registry)
     self._collapsed   = false
     self._activeCat   = 1
     self._catBtns     = {}
-    self._moduleRows  = {}   -- { name=string, frame=Frame } for search
+    self._moduleRows  = {}
     self._fpsConn     = nil
     self._fpsLabel    = nil
     self._searchBox   = nil
@@ -95,20 +106,20 @@ function Window:_build()
     gui.Parent            = playerGui
     self._gui             = gui
 
-    -- Drop shadow (sits behind, slightly larger)
+    -- Drop shadow (behind, slightly larger)
     local shadow          = Instance.new("Frame")
-    shadow.Size           = UDim2.fromOffset(W.Width + 20, W.Height + 20)
+    shadow.Size           = UDim2.fromOffset(W.Width + 24, W.Height + 24)
     shadow.AnchorPoint    = Vector2.new(0.5, 0.5)
     shadow.Position       = UDim2.fromScale(0.5, 0.5)
     shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.BackgroundTransparency = 0.60
+    shadow.BackgroundTransparency = 0.65
     shadow.BorderSizePixel = 0
     shadow.Visible        = false
     shadow.Parent         = gui
-    corner(shadow, UDim.new(0, W.Width > 0 and Theme.RadiusLG.Offset + 4 or 4))
+    corner(shadow, UDim.new(0, Theme.RadiusLG.Offset + 6))
     self._shadow          = shadow
 
-    -- Main window
+    -- Main window frame
     local main            = Instance.new("Frame")
     main.Name             = "Window"
     main.Size             = UDim2.fromOffset(W.Width, W.Height)
@@ -131,7 +142,6 @@ function Window:_build()
 end
 
 -- ── Header ────────────────────────────────────────────────────────────────────
--- No X or minimize buttons — just logo, FPS readout, and a collapse chevron.
 
 function Window:_buildHeader(parent)
     local accent = self._config.AccentColor or Theme.Accent
@@ -142,8 +152,9 @@ function Window:_buildHeader(parent)
     header.BackgroundColor3 = Theme.Surface
     header.BorderSizePixel = 0
     header.Parent         = parent
-    -- Round only the two top corners
     corner(header, Theme.RadiusLG)
+
+    -- Square off the bottom of the header so it sits flush against content
     local hSquare         = Instance.new("Frame")
     hSquare.Size          = UDim2.new(1, 0, 0, Theme.RadiusLG.Offset)
     hSquare.Position      = UDim2.new(0, 0, 1, -Theme.RadiusLG.Offset)
@@ -151,18 +162,18 @@ function Window:_buildHeader(parent)
     hSquare.BorderSizePixel  = 0
     hSquare.Parent        = header
 
-    -- Left accent pip
+    -- Left accent pip  (same style as rogue-tower-defense window chrome)
     local pip             = Instance.new("Frame")
-    pip.Size              = UDim2.fromOffset(3, W.HeaderH - 20)
-    pip.Position          = UDim2.fromOffset(14, 10)
+    pip.Size              = UDim2.fromOffset(3, W.HeaderH - 22)
+    pip.Position          = UDim2.fromOffset(14, 11)
     pip.BackgroundColor3  = accent
     pip.BorderSizePixel   = 0
     pip.Parent            = header
-    corner(pip, UDim.new(0, 2))
+    corner(pip, Theme.RadiusFull)
 
     -- Title
     local title           = Instance.new("TextLabel")
-    title.Size            = UDim2.new(0, 90, 1, 0)
+    title.Size            = UDim2.new(0, 110, 1, 0)
     title.Position        = UDim2.fromOffset(26, 0)
     title.BackgroundTransparency = 1
     title.Text            = self._config.Title or "Vain"
@@ -175,20 +186,20 @@ function Window:_buildHeader(parent)
     -- Subtitle
     local sub             = Instance.new("TextLabel")
     sub.Size              = UDim2.new(0, 50, 1, 0)
-    sub.Position          = UDim2.new(0, 72, 0, 3)
+    sub.Position          = UDim2.new(0, 76, 0, 4)
     sub.BackgroundTransparency = 1
     sub.Text              = self._config.Subtitle or "hub"
     sub.Font              = Theme.Font
-    sub.TextSize          = Theme.FontSize.MD
+    sub.TextSize          = Theme.FontSize.SM
     sub.TextColor3        = Theme.TextMuted
     sub.TextXAlignment    = Enum.TextXAlignment.Left
     sub.Parent            = header
 
-    -- FPS counter (right of center)
+    -- FPS counter
     local fps             = Instance.new("TextLabel")
     fps.Size              = UDim2.fromOffset(72, W.HeaderH)
     fps.AnchorPoint       = Vector2.new(1, 0)
-    fps.Position          = UDim2.new(1, -42, 0, 0)
+    fps.Position          = UDim2.new(1, -44, 0, 0)
     fps.BackgroundTransparency = 1
     fps.Text              = ""
     fps.Font              = Theme.Font
@@ -198,11 +209,11 @@ function Window:_buildHeader(parent)
     fps.Parent            = header
     self._fpsLabel        = fps
 
-    -- Collapse chevron  (▾ = expanded, ▸ = collapsed)
+    -- Collapse chevron (TextButton so it captures input without affecting drag)
     local chev            = Instance.new("TextButton")
-    chev.Size             = UDim2.fromOffset(34, W.HeaderH)
+    chev.Size             = UDim2.fromOffset(36, W.HeaderH)
     chev.AnchorPoint      = Vector2.new(1, 0)
-    chev.Position         = UDim2.new(1, -6, 0, 0)
+    chev.Position         = UDim2.new(1, -4, 0, 0)
     chev.BackgroundTransparency = 1
     chev.Text             = "▾"
     chev.Font             = Theme.FontBold
@@ -211,26 +222,25 @@ function Window:_buildHeader(parent)
     chev.Parent           = header
 
     chev.MouseEnter:Connect(function()
-        tw(chev, Theme.TweenFast, {TextColor3 = Theme.TextMuted}):Play()
+        tw(chev, Theme.TweenFast, {TextColor3 = Theme.Text}):Play()
     end)
     chev.MouseLeave:Connect(function()
         tw(chev, Theme.TweenFast, {TextColor3 = Theme.TextDim}):Play()
     end)
-
     chev.MouseButton1Click:Connect(function()
         self._collapsed = not self._collapsed
         if self._collapsed then
             tw(self._mainFrame, Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width, W.HeaderH)}):Play()
-            tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 20, W.HeaderH + 20)}):Play()
+            tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 24, W.HeaderH + 24)}):Play()
             chev.Text = "▸"
         else
             tw(self._mainFrame, Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width, W.Height)}):Play()
-            tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 20, W.Height + 20)}):Play()
+            tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 24, W.Height + 24)}):Play()
             chev.Text = "▾"
         end
     end)
 
-    -- Separator line below header
+    -- Separator line
     local sep             = Instance.new("Frame")
     sep.Size              = UDim2.new(1, 0, 0, 1)
     sep.Position          = UDim2.new(0, 0, 1, -1)
@@ -242,8 +252,8 @@ end
 -- ── FPS tracker ───────────────────────────────────────────────────────────────
 
 function Window:_setupFPS()
-    local hist  = {}
-    local last  = tick()
+    local hist = {}
+    local last = tick()
     self._fpsConn = RunService.RenderStepped:Connect(function()
         if not self._fpsLabel or not self._fpsLabel.Parent then return end
         local now = tick()
@@ -253,10 +263,10 @@ function Window:_setupFPS()
         local sum = 0
         for _, v in ipairs(hist) do sum = sum + v end
         local avg = math.floor(sum / #hist)
-        self._fpsLabel.Text      = avg .. " fps"
+        self._fpsLabel.Text       = avg .. " fps"
         self._fpsLabel.TextColor3 = avg >= 50 and Theme.Success
-                                 or avg >= 30 and Theme.Warning
-                                 or Theme.Danger
+                                  or avg >= 30 and Theme.Warning
+                                  or Theme.Danger
     end)
 end
 
@@ -277,7 +287,7 @@ function Window:_buildSidebar(parent)
     sidebar.Parent        = parent
     corner(sidebar, Theme.RadiusLG)
 
-    -- Fill right edge and top to square off where the sidebar meets content
+    -- Fill right and top edges
     local rFill           = Instance.new("Frame")
     rFill.Size            = UDim2.new(0, Theme.RadiusLG.Offset, 1, 0)
     rFill.Position        = UDim2.new(1, -Theme.RadiusLG.Offset, 0, 0)
@@ -291,7 +301,7 @@ function Window:_buildSidebar(parent)
     tFill.BorderSizePixel  = 0
     tFill.Parent          = sidebar
 
-    -- 1 px divider
+    -- 1px divider between sidebar and content area
     local divider         = Instance.new("Frame")
     divider.Size          = UDim2.fromOffset(1, W.Height - W.HeaderH)
     divider.Position      = UDim2.new(0, W.SidebarW - 1, 0, W.HeaderH)
@@ -318,16 +328,16 @@ function Window:_buildContent(parent)
     content.BackgroundTransparency = 1
     content.ClipsDescendants = true
     content.Parent        = parent
-    self._content         = content
 
-    -- Search bar
+    -- Search bar  (styled like rogue-tower-defense NumberInput: bordered, focus ring)
     local searchWrap      = Instance.new("Frame")
     searchWrap.Size       = UDim2.new(1, -(W.Padding * 2), 0, W.SearchH)
     searchWrap.Position   = UDim2.fromOffset(W.Padding, W.Padding)
-    searchWrap.BackgroundColor3 = Theme.Surface3
+    searchWrap.BackgroundColor3 = Theme.Surface2
     searchWrap.BorderSizePixel  = 0
     searchWrap.Parent     = content
-    corner(searchWrap, Theme.Radius)
+    corner(searchWrap, UDim.new(0, BT.CornerRadius))
+    local searchStroke = stroke(searchWrap, Theme.Border, 1)
 
     local searchIcon      = Instance.new("TextLabel")
     searchIcon.Size       = UDim2.fromOffset(30, W.SearchH)
@@ -340,7 +350,7 @@ function Window:_buildContent(parent)
 
     local searchBox       = Instance.new("TextBox")
     searchBox.Size        = UDim2.new(1, -44, 1, 0)
-    searchBox.Position    = UDim2.fromOffset(36, 0)
+    searchBox.Position    = UDim2.fromOffset(34, 0)
     searchBox.BackgroundTransparency = 1
     searchBox.PlaceholderText  = "Search modules..."
     searchBox.PlaceholderColor3 = Theme.TextDim
@@ -353,7 +363,14 @@ function Window:_buildContent(parent)
     searchBox.Parent      = searchWrap
     self._searchBox       = searchBox
 
-    -- Filter module rows as user types
+    searchBox.Focused:Connect(function()
+        tw(searchStroke, Theme.TweenFast, {Color = Theme.Accent}):Play()
+        tw(searchWrap,   Theme.TweenFast, {BackgroundColor3 = Theme.Surface3}):Play()
+    end)
+    searchBox.FocusLost:Connect(function()
+        tw(searchStroke, Theme.TweenFast, {Color = Theme.Border}):Play()
+        tw(searchWrap,   Theme.TweenFast, {BackgroundColor3 = Theme.Surface2}):Play()
+    end)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local q = searchBox.Text:lower()
         for _, data in ipairs(self._moduleRows) do
@@ -361,7 +378,7 @@ function Window:_buildContent(parent)
         end
     end)
 
-    -- Module scroll (sits below search bar)
+    -- Module scroll frame
     local scrollTop       = W.Padding + W.SearchH + 6
     local scroll          = Instance.new("ScrollingFrame")
     scroll.Name           = "ModuleScroll"
@@ -395,27 +412,31 @@ function Window:PopulateFromRegistry()
     local cats = self._registry:GetCategories()
     for i, cat in ipairs(cats) do
         local active = (i == self._activeCat)
+        local accent = self._config.AccentColor or Theme.Accent
 
+        -- Category button  (Lighten hover animation matching rogue-tower-defense Button)
         local btn     = Instance.new("TextButton")
         btn.Size      = UDim2.new(1, 0, 0, 32)
-        btn.BackgroundColor3 = active and Theme.Surface3 or Theme.Surface
+        btn.BackgroundColor3 = active and Theme.Surface2 or BT.Background
         btn.BackgroundTransparency = active and 0 or 1
         btn.BorderSizePixel = 0
+        btn.AutoButtonColor = false
         btn.Font      = active and Theme.FontSemi or Theme.Font
         btn.TextSize  = Theme.FontSize.SM
         btn.TextColor3 = active and Theme.Text or Theme.TextMuted
         btn.Text      = cat.name
         btn.Parent    = self._sidebar
-        corner(btn, Theme.RadiusSM)
+        corner(btn, UDim.new(0, BT.CornerRadius))
 
+        -- Active indicator bar (left edge)
         local ind     = Instance.new("Frame")
-        ind.Size      = UDim2.fromOffset(3, 14)
-        ind.Position  = UDim2.fromOffset(0, 9)
-        ind.BackgroundColor3 = Theme.Accent
+        ind.Size      = UDim2.fromOffset(3, 16)
+        ind.Position  = UDim2.fromOffset(0, 8)
+        ind.BackgroundColor3 = accent
         ind.BorderSizePixel  = 0
         ind.Visible   = active
         ind.Parent    = btn
-        corner(ind, UDim.new(0, 2))
+        corner(ind, Theme.RadiusFull)
 
         self._catBtns[i] = { btn = btn, ind = ind }
 
@@ -423,12 +444,19 @@ function Window:PopulateFromRegistry()
         btn.MouseButton1Click:Connect(function() self:_selectCategory(idx) end)
         btn.MouseEnter:Connect(function()
             if idx ~= self._activeCat then
-                tw(btn, Theme.TweenFast, {BackgroundTransparency = 0.4, BackgroundColor3 = Theme.Surface3, TextColor3 = Theme.Text}):Play()
+                tw(btn, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = 0,
+                    BackgroundColor3       = BT.Hover,
+                    TextColor3             = Theme.Text,
+                }):Play()
             end
         end)
         btn.MouseLeave:Connect(function()
             if idx ~= self._activeCat then
-                tw(btn, Theme.TweenFast, {BackgroundTransparency = 1, TextColor3 = Theme.TextMuted}):Play()
+                tw(btn, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = 1,
+                    TextColor3             = Theme.TextMuted,
+                }):Play()
             end
         end)
     end
@@ -437,23 +465,23 @@ function Window:PopulateFromRegistry()
 end
 
 function Window:_selectCategory(idx)
-    -- Reset search
     if self._searchBox then self._searchBox.Text = "" end
     self._moduleRows = {}
 
+    local accent = self._config.AccentColor or Theme.Accent
     for i, entry in ipairs(self._catBtns) do
         local active = (i == idx)
         entry.ind.Visible = active
         entry.btn.Font = active and Theme.FontSemi or Theme.Font
         tw(entry.btn, Theme.TweenFast, {
             BackgroundTransparency = active and 0 or 1,
-            BackgroundColor3 = Theme.Surface3,
-            TextColor3 = active and Theme.Text or Theme.TextMuted,
+            BackgroundColor3       = Theme.Surface2,
+            TextColor3             = active and Theme.Text or Theme.TextMuted,
         }):Play()
+        entry.ind.BackgroundColor3 = accent
     end
     self._activeCat = idx
 
-    -- Clear existing rows
     for _, child in ipairs(self._moduleScroll:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
@@ -466,11 +494,14 @@ function Window:_selectCategory(idx)
 end
 
 -- ── Module row ────────────────────────────────────────────────────────────────
+-- Toggle pill uses exact SliderToggle specs from Theme.Toggle.
+-- RUN button uses rogue-tower-defense Button Flash animation.
+-- Toggling a module fires a Toast notification.
 
 function Window:_buildModuleRow(module)
     local hasSettings = #module.Settings > 0
+    local accent      = self._config.AccentColor or Theme.Accent
 
-    -- Pre-compute expanded height
     local expandH = 0
     for _, s in ipairs(module.Settings) do
         expandH = expandH + (Theme.SettingH[s.Type] or 32) + 4
@@ -479,30 +510,36 @@ function Window:_buildModuleRow(module)
     local totalExpand = expandH + expandPad * 2
     local expanded    = false
 
+    -- SliderToggle dot travel calc
+    local dotTravel = TG.TrackWidth - TG.DotSize - 4
+    local dotY      = (TG.TrackHeight - TG.DotSize) / 2
+    local dotXOff   = 2
+    local dotXOn    = 2 + dotTravel
+
     -- Row container
     local row         = Instance.new("Frame")
     row.Name          = module.Name
     row.Size          = UDim2.new(1, 0, 0, W.ModuleH)
-    row.BackgroundColor3 = Theme.Surface2
+    row.BackgroundColor3 = BT.Background
     row.BorderSizePixel  = 0
     row.ClipsDescendants = true
     row.Parent        = self._moduleScroll
-    corner(row, Theme.Radius)
+    corner(row, UDim.new(0, BT.CornerRadius))
+    stroke(row, Theme.Border, 1)
 
-    -- Register for search filtering
     table.insert(self._moduleRows, { name = module.Name:lower(), frame = row })
 
-    -- ── Top strip (always visible) ────────────────────────────────────────────
+    -- ── Top strip ─────────────────────────────────────────────────────────────
     local strip       = Instance.new("Frame")
     strip.Size        = UDim2.new(1, 0, 0, W.ModuleH)
     strip.BackgroundTransparency = 1
     strip.Parent      = row
 
-    -- Status dot
+    -- Status dot (8px, accent when enabled)
     local dot         = Instance.new("Frame")
-    dot.Size          = UDim2.fromOffset(6, 6)
-    dot.Position      = UDim2.fromOffset(12, (W.ModuleH - 6) / 2)
-    dot.BackgroundColor3 = module.Enabled and Theme.Accent or Theme.Surface3
+    dot.Size          = UDim2.fromOffset(8, 8)
+    dot.Position      = UDim2.fromOffset(12, (W.ModuleH - 8) / 2)
+    dot.BackgroundColor3 = module.Enabled and accent or Theme.Surface3
     dot.BorderSizePixel  = 0
     dot.Parent        = strip
     corner(dot, Theme.RadiusFull)
@@ -510,7 +547,7 @@ function Window:_buildModuleRow(module)
     -- Module name
     local nameL       = Instance.new("TextLabel")
     nameL.Size        = UDim2.new(1, -130, 1, 0)
-    nameL.Position    = UDim2.fromOffset(26, 0)
+    nameL.Position    = UDim2.fromOffset(28, 0)
     nameL.BackgroundTransparency = 1
     nameL.Text        = module.Name
     nameL.Font        = module.Enabled and Theme.FontSemi or Theme.Font
@@ -524,7 +561,7 @@ function Window:_buildModuleRow(module)
         local kb      = Instance.new("TextLabel")
         kb.Size       = UDim2.fromOffset(36, W.ModuleH)
         kb.AnchorPoint = Vector2.new(1, 0)
-        kb.Position   = UDim2.new(1, hasSettings and -60 or -42, 0, 0)
+        kb.Position   = UDim2.new(1, hasSettings and -62 or -44, 0, 0)
         kb.BackgroundTransparency = 1
         kb.Text       = "[" .. module.Keybind.Name:sub(1, 3):upper() .. "]"
         kb.Font       = Theme.Font
@@ -534,62 +571,82 @@ function Window:_buildModuleRow(module)
         kb.Parent     = strip
     end
 
-    -- Right control: toggle pill or RUN badge
     local rightOff = hasSettings and -30 or -10
 
     if module.Behavior == "Toggleable" then
-        local pill    = Instance.new("Frame")
-        pill.Size     = UDim2.fromOffset(32, 16)
+        -- SliderToggle pill (exact rogue-tower-defense SliderToggle)
+        local pill    = Instance.new("TextButton")
+        pill.Size     = UDim2.fromOffset(TG.TrackWidth, TG.TrackHeight)
         pill.AnchorPoint = Vector2.new(1, 0.5)
         pill.Position = UDim2.new(1, rightOff, 0.5, 0)
-        pill.BackgroundColor3 = module.Enabled and Theme.Accent or Theme.Surface3
+        pill.BackgroundColor3 = module.Enabled and accent or TG.TrackOff
         pill.BorderSizePixel  = 0
-        pill.Parent   = strip
-        corner(pill, Theme.RadiusFull)
+        pill.Text    = ""
+        pill.AutoButtonColor = false
+        pill.Parent  = strip
+        corner(pill, UDim.new(0, TG.CornerRadius))
 
         local knob    = Instance.new("Frame")
-        knob.Size     = UDim2.fromOffset(10, 10)
-        knob.AnchorPoint = Vector2.new(0, 0.5)
-        knob.Position = module.Enabled and UDim2.new(1,-13,0.5,0) or UDim2.new(0,3,0.5,0)
-        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        knob.Size     = UDim2.fromOffset(TG.DotSize, TG.DotSize)
+        knob.Position = UDim2.fromOffset(module.Enabled and dotXOn or dotXOff, dotY)
+        knob.BackgroundColor3 = TG.Dot
         knob.BorderSizePixel  = 0
-        knob.Parent   = pill
-        corner(knob, Theme.RadiusFull)
+        knob.Parent  = pill
+        corner(knob, UDim.new(0, TG.CornerRadius))
+
+        local tweenInfo = TweenInfo.new(TG.TransitionTime, Enum.EasingStyle.Quad)
+
+        pill.MouseButton1Click:Connect(function()
+            module:Trigger()
+        end)
 
         module:OnStateChange(function(state)
             local on = state == true
-            tw(pill,  Theme.TweenFast, {BackgroundColor3 = on and Theme.Accent or Theme.Surface3}):Play()
-            tw(knob,  Theme.TweenFast, {Position = on and UDim2.new(1,-13,0.5,0) or UDim2.new(0,3,0.5,0)}):Play()
-            tw(dot,   Theme.TweenFast, {BackgroundColor3 = on and Theme.Accent or Theme.Surface3}):Play()
+            tw(pill,  tweenInfo, {BackgroundColor3 = on and accent or TG.TrackOff}):Play()
+            tw(knob,  tweenInfo, {Position = UDim2.fromOffset(on and dotXOn or dotXOff, dotY)}):Play()
+            tw(dot,   Theme.TweenFast, {BackgroundColor3 = on and accent or Theme.Surface3}):Play()
             tw(nameL, Theme.TweenFast, {TextColor3 = on and Theme.Text or Theme.TextMuted}):Play()
             nameL.Font = on and Theme.FontSemi or Theme.Font
+            -- Toast notification matching rogue-tower-defense style
+            Toast.show(module.Name .. (on and " enabled" or " disabled"), {
+                Variant = on and "success" or "info",
+                Duration = 2,
+            })
         end)
 
     else
+        -- RUN button with rogue-tower-defense Flash animation
         local execBtn = Instance.new("TextButton")
         execBtn.Size  = UDim2.fromOffset(40, 22)
         execBtn.AnchorPoint = Vector2.new(1, 0.5)
         execBtn.Position    = UDim2.new(1, rightOff, 0.5, 0)
-        execBtn.BackgroundColor3 = Theme.Accent
+        execBtn.BackgroundColor3 = accent
         execBtn.BorderSizePixel  = 0
+        execBtn.AutoButtonColor  = false
         execBtn.Font  = Theme.FontBold
         execBtn.TextSize = Theme.FontSize.XS
         execBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         execBtn.Text  = "RUN"
         execBtn.Parent = strip
-        corner(execBtn, Theme.RadiusSM)
+        corner(execBtn, UDim.new(0, BT.CornerRadius))
 
+        -- Flash animation on click (rogue-tower-defense Button ClickAnimation = "Flash")
+        execBtn.MouseButton1Down:Connect(function()
+            tw(execBtn, TweenInfo.new(0.08, Enum.EasingStyle.Sine), {BackgroundColor3 = Theme.Success}):Play()
+        end)
+        execBtn.MouseButton1Up:Connect(function()
+            tw(execBtn, TweenInfo.new(0.22, Enum.EasingStyle.Sine), {BackgroundColor3 = accent}):Play()
+        end)
         execBtn.MouseButton1Click:Connect(function()
             module:Trigger()
-            tw(execBtn, TweenInfo.new(0.07), {BackgroundColor3 = Theme.Success}):Play()
-            task.delay(0.35, function()
-                tw(execBtn, Theme.Tween, {BackgroundColor3 = Theme.Accent}):Play()
-            end)
+            Toast.show(module.Name .. " executed", { Variant = "info", Duration = 1.5 })
         end)
 
+        addButtonHover(execBtn, accent, Theme.AccentHover)
+
         module:OnStateChange(function()
-            tw(dot, Theme.TweenFast, {BackgroundColor3 = Theme.Accent}):Play()
-            task.delay(0.35, function()
+            tw(dot, Theme.TweenFast, {BackgroundColor3 = accent}):Play()
+            task.delay(0.4, function()
                 tw(dot, Theme.Tween, {BackgroundColor3 = Theme.Surface3}):Play()
             end)
         end)
@@ -631,7 +688,6 @@ function Window:_buildModuleRow(module)
             if comp then comp.Parent = settingsPanel end
         end
 
-        -- Separator between strip and settings
         local sep   = Instance.new("Frame")
         sep.Size    = UDim2.new(1, -16, 0, 1)
         sep.Position = UDim2.new(0, 8, 0, W.ModuleH)
@@ -640,7 +696,6 @@ function Window:_buildModuleRow(module)
         sep.BorderSizePixel = 0
         sep.Parent  = row
 
-        -- Expand button (right side of strip, covers chevron area)
         local expandBtn = Instance.new("TextButton")
         expandBtn.Size  = UDim2.fromOffset(30, W.ModuleH)
         expandBtn.AnchorPoint = Vector2.new(1, 0)
@@ -656,13 +711,13 @@ function Window:_buildModuleRow(module)
             tw(row,  Theme.TweenSlow, {Size = UDim2.new(1, 0, 0, targetH)}):Play()
             tw(chev, Theme.TweenFast, {
                 Rotation   = expanded and 270 or 90,
-                TextColor3 = expanded and Theme.Accent or Theme.TextDim,
+                TextColor3 = expanded and accent or Theme.TextDim,
             }):Play()
             tw(sep, Theme.TweenFast, {BackgroundTransparency = expanded and 0 or 1}):Play()
         end)
     end
 
-    -- ── Row click → toggle module (Toggleable only) ───────────────────────────
+    -- ── Row hover + click (row-wide toggle area) ──────────────────────────────
     local rowBtn  = Instance.new("TextButton")
     rowBtn.Size   = UDim2.new(1, hasSettings and -30 or 0, 0, W.ModuleH)
     rowBtn.BackgroundTransparency = 1
@@ -671,10 +726,10 @@ function Window:_buildModuleRow(module)
     rowBtn.Parent = strip
 
     rowBtn.MouseEnter:Connect(function()
-        tw(row, Theme.TweenFast, {BackgroundColor3 = Theme.Surface3}):Play()
+        tw(row, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {BackgroundColor3 = BT.Hover}):Play()
     end)
     rowBtn.MouseLeave:Connect(function()
-        tw(row, Theme.TweenFast, {BackgroundColor3 = Theme.Surface2}):Play()
+        tw(row, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {BackgroundColor3 = BT.Background}):Play()
     end)
     rowBtn.MouseButton1Click:Connect(function()
         if module.Behavior == "Toggleable" then module:Trigger() end
@@ -686,9 +741,9 @@ end
 -- ── Drag ──────────────────────────────────────────────────────────────────────
 
 function Window:_setupDrag(frame)
-    local header    = frame:FindFirstChild("Header")
-    local dragSrc   = header or frame
-    local dragging  = false
+    local header   = frame:FindFirstChild("Header")
+    local dragSrc  = header or frame
+    local dragging = false
     local startInput, startPos
 
     dragSrc.InputBegan:Connect(function(inp)
@@ -699,18 +754,16 @@ function Window:_setupDrag(frame)
             frame.AnchorPoint      = Vector2.zero
             frame.Position         = UDim2.fromOffset(startPos.X, startPos.Y)
             self._shadow.AnchorPoint = Vector2.zero
-            self._shadow.Position    = UDim2.fromOffset(startPos.X - 10, startPos.Y - 10)
+            self._shadow.Position    = UDim2.fromOffset(startPos.X - 12, startPos.Y - 12)
         end
     end)
-
     UserInputService.InputChanged:Connect(function(inp)
         if not dragging or inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
         local delta = Vector2.new(inp.Position.X, inp.Position.Y) - startInput
         local nx, ny = startPos.X + delta.X, startPos.Y + delta.Y
-        frame.Position         = UDim2.fromOffset(nx, ny)
-        self._shadow.Position  = UDim2.fromOffset(nx - 10, ny - 10)
+        frame.Position        = UDim2.fromOffset(nx, ny)
+        self._shadow.Position = UDim2.fromOffset(nx - 12, ny - 12)
     end)
-
     UserInputService.InputEnded:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
@@ -722,15 +775,15 @@ function Window:Show()
     self._mainFrame.Visible = true
     self._shadow.Visible    = true
     self._mainFrame.Size    = UDim2.fromOffset(W.Width, 8)
-    self._shadow.Size       = UDim2.fromOffset(W.Width + 20, 28)
+    self._shadow.Size       = UDim2.fromOffset(W.Width + 24, 32)
     tw(self._mainFrame, Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width, W.Height)}):Play()
-    tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 20, W.Height + 20)}):Play()
+    tw(self._shadow,    Theme.TweenSpring, {Size = UDim2.fromOffset(W.Width + 24, W.Height + 24)}):Play()
     self._visible = true
 end
 
 function Window:Hide()
     tw(self._mainFrame, Theme.Tween, {Size = UDim2.fromOffset(W.Width, 8)}):Play()
-    tw(self._shadow,    Theme.Tween, {Size = UDim2.fromOffset(W.Width + 20, 28)}):Play()
+    tw(self._shadow,    Theme.Tween, {Size = UDim2.fromOffset(W.Width + 24, 32)}):Play()
     task.delay(Theme.Tween.Time + 0.05, function()
         if self._mainFrame then self._mainFrame.Visible = false end
         if self._shadow    then self._shadow.Visible    = false end

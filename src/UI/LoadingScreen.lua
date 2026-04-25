@@ -1,5 +1,5 @@
 --[[
-    UI/LoadingScreen.lua  –  Vain intro animation (v2).
+    UI/LoadingScreen.lua  –  Vain intro animation.
 
     Sequence
         0.00  Backdrop fades in (Quad, 0.35 s)
@@ -13,6 +13,7 @@
 --]]
 
 local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
 local Players      = game:GetService("Players")
 
 local Theme = require(script.Parent.Parent.Theme)
@@ -41,7 +42,7 @@ function LoadingScreen:Show(onComplete)
     backdrop.BorderSizePixel      = 0
     backdrop.Parent                = gui
 
-    -- Centered card (all elements live inside)
+    -- Centered card
     local card             = Instance.new("Frame")
     card.Size              = UDim2.fromOffset(360, 200)
     card.AnchorPoint       = Vector2.new(0.5, 0.5)
@@ -50,10 +51,9 @@ function LoadingScreen:Show(onComplete)
     card.Parent            = backdrop
 
     -- ── "VAIN" logo ──────────────────────────────────────────────────────────
-    -- Starts 28 px below final position and fully transparent → slides up + fades in
     local logo             = Instance.new("TextLabel")
     logo.Size              = UDim2.new(1, 0, 0, 90)
-    logo.Position          = UDim2.fromOffset(0, 28)   -- starts 28 px low
+    logo.Position          = UDim2.fromOffset(0, 28)
     logo.BackgroundTransparency = 1
     logo.Text              = "VAIN"
     logo.Font              = Theme.FontBold
@@ -65,7 +65,7 @@ function LoadingScreen:Show(onComplete)
 
     -- ── Accent underline ─────────────────────────────────────────────────────
     local ulWrap           = Instance.new("Frame")
-    ulWrap.Size            = UDim2.new(0.72, 0, 0, 4)
+    ulWrap.Size            = UDim2.new(0.72, 0, 0, 5)
     ulWrap.AnchorPoint     = Vector2.new(0.5, 0)
     ulWrap.Position        = UDim2.new(0.5, 0, 0, 98)
     ulWrap.BackgroundTransparency = 1
@@ -78,21 +78,20 @@ function LoadingScreen:Show(onComplete)
     ul.BackgroundColor3    = Theme.Accent
     ul.BorderSizePixel     = 0
     ul.Parent              = ulWrap
-    corner(ul, UDim.new(0, 2))
+    corner(ul, Theme.RadiusFull)
 
-    -- Shimmer gradient on bar
     local ulGrad           = Instance.new("UIGradient")
     ulGrad.Color           = ColorSequence.new{
-        ColorSequenceKeypoint.new(0,   Color3.fromRGB(180, 220, 255)),
+        ColorSequenceKeypoint.new(0,   Theme.AccentHover),
         ColorSequenceKeypoint.new(0.5, Theme.Accent),
-        ColorSequenceKeypoint.new(1,   Color3.fromRGB(180, 220, 255)),
+        ColorSequenceKeypoint.new(1,   Theme.AccentHover),
     }
     ulGrad.Parent          = ul
 
     -- ── Tagline ───────────────────────────────────────────────────────────────
     local tagline          = Instance.new("TextLabel")
     tagline.Size           = UDim2.new(1, 0, 0, 20)
-    tagline.Position       = UDim2.fromOffset(0, 112)
+    tagline.Position       = UDim2.fromOffset(0, 114)
     tagline.BackgroundTransparency = 1
     tagline.Text           = "quality matters"
     tagline.Font           = Theme.Font
@@ -105,7 +104,7 @@ function LoadingScreen:Show(onComplete)
     -- ── Version ───────────────────────────────────────────────────────────────
     local version          = Instance.new("TextLabel")
     version.Size           = UDim2.new(1, 0, 0, 14)
-    version.Position       = UDim2.fromOffset(0, 136)
+    version.Position       = UDim2.fromOffset(0, 138)
     version.BackgroundTransparency = 1
     version.Text           = "v2.0"
     version.Font           = Theme.Font
@@ -117,35 +116,34 @@ function LoadingScreen:Show(onComplete)
 
     -- ── Loading bar ───────────────────────────────────────────────────────────
     local barTrack         = Instance.new("Frame")
-    barTrack.Size          = UDim2.new(0.78, 0, 0, 6)
+    barTrack.Size          = UDim2.new(0.78, 0, 0, 8)
     barTrack.AnchorPoint   = Vector2.new(0.5, 0)
-    barTrack.Position      = UDim2.new(0.5, 0, 0, 162)
+    barTrack.Position      = UDim2.new(0.5, 0, 0, 165)
     barTrack.BackgroundColor3    = Theme.Surface3
     barTrack.BackgroundTransparency = 0
     barTrack.BorderSizePixel     = 0
     barTrack.Parent        = card
-    corner(barTrack, UDim.new(0, 3))
+    corner(barTrack, Theme.RadiusFull)
 
     local barFill          = Instance.new("Frame")
     barFill.Size           = UDim2.fromScale(0, 1)
     barFill.BackgroundColor3    = Theme.Accent
     barFill.BorderSizePixel     = 0
     barFill.Parent         = barTrack
-    corner(barFill, UDim.new(0, 3))
+    corner(barFill, Theme.RadiusFull)
 
-    -- Moving shimmer on bar
     local barGrad          = Instance.new("UIGradient")
     barGrad.Color          = ColorSequence.new{
         ColorSequenceKeypoint.new(0,    Theme.Accent),
-        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(100, 180, 255)),
-        ColorSequenceKeypoint.new(0.55, Color3.fromRGB(100, 180, 255)),
+        ColorSequenceKeypoint.new(0.45, Theme.AccentHover),
+        ColorSequenceKeypoint.new(0.55, Theme.AccentHover),
         ColorSequenceKeypoint.new(1,    Theme.Accent),
     }
     barGrad.Parent         = barFill
 
-    -- Shimmer sweep (offset cycles 0 → 1 → 0)
+    -- Shimmer sweep
     local shimmerDir       = true
-    local shimmerConn      = game:GetService("RunService").RenderStepped:Connect(function(dt)
+    local shimmerConn      = RunService.RenderStepped:Connect(function(dt)
         local cur = barGrad.Offset.X
         local next = cur + (shimmerDir and dt * 0.9 or -dt * 0.9)
         if next >= 1 then shimmerDir = false
@@ -160,7 +158,7 @@ function LoadingScreen:Show(onComplete)
         {BackgroundTransparency = 0}):Play()
     task.wait(0.35)
 
-    -- 0.35  Logo slides up + fades in (Back easing for a little overshoot)
+    -- 0.35  Logo slides up + fades in
     tw(logo, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
         {Position = UDim2.fromOffset(0, 0), TextTransparency = 0}):Play()
     task.wait(0.35)

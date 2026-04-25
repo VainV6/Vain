@@ -40,9 +40,12 @@
         hub:Destroy()
 --]]
 
+local Players      = game:GetService("Players")
+
 local Registry     = require(script.Parent.Registry)
 local InputHandler = require(script.Parent.InputHandler)
 local Window       = require(script.Parent.UI.Window)
+local Toast        = require(script.Parent.UI.Toast)
 local Module       = require(script.Parent.Classes.Module)
 local Theme        = require(script.Parent.Theme)
 
@@ -65,6 +68,10 @@ function VainFramework.new(config)
     self._input       = InputHandler.new(self._registry)
     self._window      = Window.new(config, self._registry)
     self._populated   = false
+
+    -- Mount the Toast system so Window can fire notifications
+    local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+    Toast.mount(playerGui)
 
     -- Wire global UI toggle
     if config.ToggleKey then

@@ -365,7 +365,7 @@ LoadingScreen:Show(function()
         OnDisable = function() end,
     })
     UITheme:AddSetting("ColorPicker", {
-        Name = "Accent Color", Default = Color3.fromRGB(0, 120, 255),
+        Name = "Accent Color", Default = Color3.fromRGB(58, 111, 216),
         Callback = function(v) loadMod("Theme").Accent = v end,
     })
 
