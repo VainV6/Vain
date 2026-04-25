@@ -14,8 +14,10 @@ local Workspace        = game:GetService("Workspace")
 local LocalPlayer      = Players.LocalPlayer
 
 -- ── HTTP helper ────────────────────────────────────────────────────────────────
+-- ?nc= busts GitHub's CDN cache so executors always get the latest commit.
+local _nc = tostring(math.floor(tick()))
 local function fetch(url)
-    return game:HttpGet(url, true)
+    return game:HttpGet(url .. "?nc=" .. _nc, true)
 end
 
 -- ── Fake-instance path resolver ────────────────────────────────────────────────
