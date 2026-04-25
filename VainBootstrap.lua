@@ -160,10 +160,12 @@ local function makeBillboard(target, color)
     return bg, conn
 end
 
-local function enableESP(tag, namePattern, s, color)
+-- filter(entity) → true means SKIP this entity
+local function enableESP(tag, namePattern, s, color, filter)
     clearESP(tag)
 
     local function applyToEntity(entity)
+        if filter and filter(entity) then return end
         local root = getRoot(entity)
         if not root then return end
         if distTo(root) > s.MaxDistance then return end
@@ -190,6 +192,7 @@ local function enableESP(tag, namePattern, s, color)
 
     addESPConn(tag, Workspace.DescendantAdded:Connect(function(v)
         if (v:IsA("BasePart") or v:IsA("Model")) and v.Name:lower():find(namePattern:lower()) then
+            if filter and filter(v) then return end
             task.wait()
             applyToEntity(v)
         end
@@ -197,10 +200,10 @@ local function enableESP(tag, namePattern, s, color)
 end
 
 -- Helper: refresh a running ESP after a settings toggle
-local function refreshESP(tag, namePattern, s, color)
+local function refreshESP(tag, namePattern, s, color, filter)
     if s.Enabled then
         clearESP(tag)
-        enableESP(tag, namePattern, s, color)
+        enableESP(tag, namePattern, s, color, filter)
     end
 end
 
@@ -321,20 +324,30 @@ LoadingScreen:Show(function()
         Callback = function(v) State.StarESP.MaxDistance = v end })
 
     -- BeeESP ───────────────────────────────────────────────────────────────────
+    -- Walk up ancestry; skip if entity is inside (or is) a "tamedBee" model
+    local function isTamedBee(entity)
+        local node = entity
+        while node and node ~= Workspace do
+            if node.Name == "tamedBee" then return true end
+            node = node.Parent
+        end
+        return false
+    end
+
     local BEE_COLOR = Color3.fromRGB(255, 170, 0)
     local BeeESP = Visuals:AddModule({
         Name      = "BeeESP",
         Behavior  = "Toggleable",
         Keybind   = Enum.KeyCode.N,
-        OnEnable  = function() State.BeeESP.Enabled = true;  enableESP("BeeESP", "Bee",         State.BeeESP,   BEE_COLOR) end,
+        OnEnable  = function() State.BeeESP.Enabled = true;  enableESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR, isTamedBee) end,
         OnDisable = function() State.BeeESP.Enabled = false; clearESP("BeeESP") end,
     })
     BeeESP:AddSetting("Toggle", { Name = "Highlight",    Default = true,
-        Callback = function(v) State.BeeESP.Highlight = v;   refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR) end })
+        Callback = function(v) State.BeeESP.Highlight = v;   refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR, isTamedBee) end })
     BeeESP:AddSetting("Toggle", { Name = "Beams",        Default = false,
-        Callback = function(v) State.BeeESP.Beams = v;       refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR) end })
+        Callback = function(v) State.BeeESP.Beams = v;       refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR, isTamedBee) end })
     BeeESP:AddSetting("Toggle", { Name = "Distance",     Default = true,
-        Callback = function(v) State.BeeESP.Distance = v;    refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR) end })
+        Callback = function(v) State.BeeESP.Distance = v;    refreshESP("BeeESP", "Bee", State.BeeESP, BEE_COLOR, isTamedBee) end })
     BeeESP:AddSetting("Slider", { Name = "Max Distance", Min = 50, Max = 2000, Default = 500, Suffix = " st",
         Callback = function(v) State.BeeESP.MaxDistance = v end })
 
@@ -400,7 +413,7 @@ LoadingScreen:Show(function()
     })
     UITheme:AddSetting("ColorPicker", {
         Name = "Accent Color", Default = Color3.fromRGB(58, 111, 216),
-        Callback = function(v) loadMod("Theme").Accent = v end,
+        Callback = function(v) Vain:SetAccentColor(v) end,
     })
 
     Settings:AddModule({

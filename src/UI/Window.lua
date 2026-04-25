@@ -59,7 +59,7 @@ local function pad(parent, l, r, t, b)
 end
 
 local CAT_INACTIVE = Color3.fromRGB(148, 148, 148)
-local BORDER_COLOR = Color3.fromRGB(72, 72, 72)
+local BORDER_COLOR = Color3.fromRGB(100, 100, 100)
 local SEP_COLOR    = Color3.fromRGB(58, 58, 58)
 
 -- ── Constructor ───────────────────────────────────────────────────────────────
@@ -82,6 +82,7 @@ function Window.new(config, registry)
     self._moduleScroll     = nil
     self._tooltipFrame     = nil
     self._tooltipLabel     = nil
+    self._pip              = nil
     self:_build()
     return self
 end
@@ -126,10 +127,10 @@ function Window:_build()
     corner(outer, Theme.RadiusLG)
     self._mainFrame = outer
 
-    -- Inner frame – 1 px inset, clips all content to the window shape
+    -- Inner frame – 2 px inset, clips all content to the window shape
     local inner                   = Instance.new("Frame")
     inner.Name                    = "WindowInner"
-    inner.Size                    = UDim2.new(1, -2, 1, -2)
+    inner.Size                    = UDim2.new(1, -4, 1, -4)
     inner.AnchorPoint             = Vector2.new(0.5, 0.5)
     inner.Position                = UDim2.fromScale(0.5, 0.5)
     inner.BackgroundColor3        = Theme.Background
@@ -184,7 +185,7 @@ function Window:_addTooltip(element, text)
         if not self._tooltipFrame then return end
         self._tooltipLabel.Text = text
         local mp = UserInputService:GetMouseLocation()
-        self._tooltipFrame.Position = UDim2.fromOffset(mp.X + 16, mp.Y - 4)
+        self._tooltipFrame.Position = UDim2.fromOffset(mp.X + 12, mp.Y + 18)
         self._tooltipFrame.Visible  = true
     end)
     element.MouseLeave:Connect(function()
@@ -199,7 +200,7 @@ function Window:_setupTooltipTracking()
         if inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
         if self._tooltipFrame and self._tooltipFrame.Visible then
             self._tooltipFrame.Position =
-                UDim2.fromOffset(inp.Position.X + 16, inp.Position.Y - 4)
+                UDim2.fromOffset(inp.Position.X + 12, inp.Position.Y + 18)
         end
     end)
 end
@@ -233,6 +234,7 @@ function Window:_buildHeader(parent)
     pip.BorderSizePixel       = 0
     pip.Parent                = header
     corner(pip, Theme.RadiusFull)
+    self._pip                 = pip
 
     -- Title
     local title               = Instance.new("TextLabel")
@@ -746,7 +748,7 @@ function Window:_buildModuleRow(module)
         if self._tooltipFrame then
             self._tooltipLabel.Text = ttText
             local mp = UserInputService:GetMouseLocation()
-            self._tooltipFrame.Position = UDim2.fromOffset(mp.X + 16, mp.Y - 4)
+            self._tooltipFrame.Position = UDim2.fromOffset(mp.X + 12, mp.Y + 18)
             self._tooltipFrame.Visible  = true
         end
     end)
@@ -762,43 +764,48 @@ function Window:_buildModuleRow(module)
 end
 
 -- ── Drag ──────────────────────────────────────────────────────────────────────
--- Fires from anywhere in the window. A 5 px movement threshold prevents clicks
--- from accidentally dragging the window. AnchorPoint stays (0.5, 0.5) throughout.
+-- Fires from anywhere in the window. AnchorPoint stays (0.5, 0.5) throughout;
+-- dragOffset (center minus click position) prevents any jump on first move.
 
 function Window:_setupDrag(outer)
-    local dragging      = false
-    local thresholdMet  = false
-    local startMouse    = nil
-    local dragOffset    = Vector2.zero   -- offset: frame center minus mouse at drag-start
+    local dragging   = false
+    local dragOffset = Vector2.zero
 
     outer.InputBegan:Connect(function(inp)
         if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        dragging     = true
-        thresholdMet = false
-        startMouse   = Vector2.new(inp.Position.X, inp.Position.Y)
+        dragging   = true
+        local mp   = Vector2.new(inp.Position.X, inp.Position.Y)
         local center = outer.AbsolutePosition + outer.AbsoluteSize * 0.5
-        dragOffset   = center - startMouse
+        dragOffset = center - mp
     end)
 
     UserInputService.InputChanged:Connect(function(inp)
         if not dragging or inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local mp = Vector2.new(inp.Position.X, inp.Position.Y)
-        if not thresholdMet then
-            if (mp - startMouse).Magnitude < 5 then return end
-            thresholdMet = true
-        end
-        local newCenter       = mp + dragOffset
-        outer.Position        = UDim2.fromOffset(newCenter.X, newCenter.Y)
+        local mp          = Vector2.new(inp.Position.X, inp.Position.Y)
+        local newCenter   = mp + dragOffset
+        outer.Position    = UDim2.fromOffset(newCenter.X, newCenter.Y)
         self._shadow.Position = UDim2.fromOffset(newCenter.X, newCenter.Y)
     end)
 
     UserInputService.InputEnded:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging     = false
-            thresholdMet = false
-            startMouse   = nil
+            dragging = false
         end
     end)
+end
+
+-- ── Accent refresh ───────────────────────────────────────────────────────────
+
+function Window:RefreshAccent(color)
+    self._config.AccentColor = color
+    if self._pip         then self._pip.BackgroundColor3              = color end
+    if self._moduleScroll then self._moduleScroll.ScrollBarImageColor3 = color end
+    for _, entry in ipairs(self._catBtns) do
+        if entry.ind then entry.ind.BackgroundColor3 = color end
+    end
+    if #self._catBtns > 0 then
+        self:_selectCategory(self._activeCat)
+    end
 end
 
 -- ── Visibility ────────────────────────────────────────────────────────────────

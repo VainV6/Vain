@@ -136,6 +136,12 @@ function VainFramework:SetNotificationsEnabled(enabled)
     Toast.setEnabled(enabled)
 end
 
+function VainFramework:SetAccentColor(color)
+    Theme.Accent = color
+    self._config.AccentColor = color
+    self._window:RefreshAccent(color)
+end
+
 function VainFramework:GetModule(name)
     return self._registry:GetModule(name)
 end
