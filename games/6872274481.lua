@@ -25021,11 +25021,14 @@ run(function()
     						-- actually received (4 diamonds caught shows as 3), so +1 here
     						-- to match reality.
     						local amount = v.amount + 1
-    						table.insert(text, `{amount} {itemDisplay:lower()}{amount >= 2 and 's' or ''}`)
+    						-- These are resource names (Iron, Gold, TNT, ...), not countable
+    						-- objects -- BedWars itself never pluralizes them ("10 Iron", not
+    						-- "10 Irons"), so use the display name as-is with no added 's'.
+    						table.insert(text, `{amount} {itemDisplay}`)
     					end
 
     					if #text > 0 and isEnemy then
-    						notif('FishermanSpy', `{data.catchingPlayer.Name} caught {table.concat(text, ', ')}`, 20, 'info')
+    						notif('Fisherman Spy', `{data.catchingPlayer.Name} caught {table.concat(text, ', ')}`, 8, 'info')
     					end
 
     					local special = SPECIAL_FISH[data.dropData.fishModel]
@@ -25034,7 +25037,7 @@ run(function()
     						or data.dropData.fishModel == 'fish_emerald' and EmeraldNotify
     					if special and specialToggle and specialToggle.Enabled and isEnemy then
     						local word, hex = special[1], special[2]
-    						notif('FishermanSpy', `{data.catchingPlayer.Name} has caught a <font color='{hex}'>{word}</font> fish`, 20, 'info')
+    						notif('Fisherman Spy', `{data.catchingPlayer.Name} has caught a <font color='{hex}'>{word}</font> fish`, 8, 'info')
     					end
     				end
     			end))

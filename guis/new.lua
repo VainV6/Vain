@@ -5280,6 +5280,17 @@ function mainapi:CreateNotification(title, text, duration, type)
 		end
 		return
 	end
+	-- Reserve this notification's slot in the stack synchronously, before any
+	-- yielding call. GetTextBoundsAsync below yields, and CreateNotification is
+	-- often fired several times back-to-back in the same frame (e.g. Fisherman
+	-- Spy logging multiple catches) -- inserting only after the async measurement
+	-- let two concurrent calls both read the same pre-insert stack length and
+	-- compute the same Y position, stacking them directly on top of each other.
+	-- height starts as a placeholder and gets corrected (with a restack) once the
+	-- real text measurement is in.
+	local entry = {notification = nil, height = 56}
+	table.insert(notificationStack, entry)
+
 	task.delay(0, function()
 		if self.ThreadFix then
 			setthreadidentity(8)
@@ -5307,13 +5318,15 @@ function mainapi:CreateNotification(title, text, duration, type)
 		-- Body sits at y=40; small bottom padding so the box hugs the content
 		-- (trims the big empty strip that used to sit under the message).
 		local notifHeight = math.max(56, 40 + textHeight + 8)
+		entry.height = notifHeight
 
-		-- Insert into stack before computing Y so concurrent notifications stack correctly
-		local entry = {notification = nil, height = notifHeight}
-		table.insert(notificationStack, entry)
+		-- Compute Y from this entry's own slot in the stack (fixed at insert
+		-- time above), not the stack's current length -- more notifications may
+		-- have already been reserved after us by the time we get here.
 		local initialY = 29
-		for k = 1, #notificationStack - 1 do
-			initialY = initialY + notificationStack[k].height + 3
+		for _, e in ipairs(notificationStack) do
+			if e == entry then break end
+			initialY = initialY + e.height + 3
 		end
 
 		local notification = Instance.new('ImageButton')
@@ -5329,6 +5342,9 @@ function mainapi:CreateNotification(title, text, duration, type)
 		notification.Parent = notifications
 		addBlur(notification, true)
 		entry.notification = notification
+		-- Our real height may differ from the 56 placeholder every other entry
+		-- used to compute its own Y -- fix up everyone's position now that it's known.
+		restackNotifications()
 
 		local dismissed = false
 		local function dismiss()
