@@ -4044,6 +4044,11 @@ function mainapi:CreateCategory(categorysettings)
 			-- "was enabled" profile restoring through Load() (which calls this
 			-- directly, bypassing the button's own click-handler Locked check).
 			if moduleapi.Locked then return end
+			-- Legit Mode blocks enabling anything in the Blatant category, but
+			-- still allows turning an already-enabled one back off.
+			if mainapi.LegitOnly and mainapi.LegitOnly.Enabled and self.Category == 'Blatant' and not self.Enabled then
+				return
+			end
 			if mainapi.ThreadFix then
 				setthreadidentity(8)
 			end
@@ -6194,6 +6199,19 @@ local general = mainapi.Categories.Main:CreateSettingsPane({Name = 'General'})
 mainapi.MultiKeybind = general:CreateToggle({
 	Name = 'Enable Multi-Keybinding',
 	Tooltip = 'Allows multiple keys to be bound to a module (eg. G + H)'
+})
+mainapi.LegitOnly = general:CreateToggle({
+	Name = 'Legit Mode',
+	Tooltip = 'Prevents you from enabling any Blatant category module. Turns off any that are already enabled.',
+	Function = function(callback)
+		if callback then
+			for _, mod in mainapi.Modules do
+				if mod.Category == 'Blatant' and mod.Enabled then
+					mod:Toggle()
+				end
+			end
+		end
+	end
 })
 general:CreateButton({
 	Name = 'Reset current profile',
