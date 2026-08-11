@@ -45,6 +45,7 @@ local mainapi = {
 		['Infinite Jump'] = 'UPD',
 		['Projectile Aimbot'] = 'UPD',
 		['Auto Honor'] = 'UPD',
+		['FPS Unlock'] = 'NEW',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
 	-- Profiles window (each installs as a new, editable local profile). Populated by hand

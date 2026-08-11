@@ -486,6 +486,9 @@ local function createVainCooldownBar(barColor)
 	end
 	function api.SetProgress(frac, value)
 		fill.Size = UDim2.new(math.clamp(frac, 0, 1), 0, 1, 0)
+		if not barColor then
+			fill.BackgroundColor3 = Color3.fromHSV(vain.GUIColor.Hue, vain.GUIColor.Sat, vain.GUIColor.Value)
+		end
 		if value then
 			valueLabel.Text = string.format('%.1f', math.max(value, 0))
 		end
@@ -6041,6 +6044,42 @@ run(function()
     NoSky = FPSBoost:CreateToggle({ Name = 'No Sky', Default = true,
         Tooltip = 'Remove skybox, atmosphere and clouds.',
         Function = function() applySky() end })
+end)
+
+run(function()
+    local FPSUnlock
+    local MaxFPS
+
+    FPSUnlock = vain.Categories.Utility:CreateModule({
+        Name = 'FPS Unlock',
+        Disabled = not setfpscap,
+        DsiabledTooltip = 'This module requires a specific function to work, Which your executor (' .. ({
+            identifyexecutor(),
+        })[1] .. ') does not have',
+        Tooltip = 'Removes (or sets) the frame-rate cap',
+        Function = function(callback)
+            if callback then
+                pcall(function() setfpscap(MaxFPS.Value) end)
+            else
+                -- No getter for the cap this replaced (setfpscap is write-only on
+                -- every known executor), so there's nothing to restore to -- reset
+                -- to Roblox's own default cap instead of leaving our override applied.
+                pcall(function() setfpscap(60) end)
+            end
+        end,
+    })
+    MaxFPS = FPSUnlock:CreateSlider({
+        Name = 'Max FPS',
+        Tooltip = 'Frame-rate cap to apply',
+        Min = 30,
+        Max = 999,
+        Default = 240,
+        Function = function(val)
+            if FPSUnlock.Enabled then
+                pcall(function() setfpscap(val) end)
+            end
+        end,
+    })
 end)
 
 run(function()

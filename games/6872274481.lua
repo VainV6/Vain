@@ -332,6 +332,9 @@ local function createVainCooldownBar(barColor)
 	end
 	function api.SetProgress(frac, value)
 		fill.Size = UDim2.new(math.clamp(frac, 0, 1), 0, 1, 0)
+		if not barColor then
+			fill.BackgroundColor3 = Color3.fromHSV(vain.GUIColor.Hue, vain.GUIColor.Sat, vain.GUIColor.Value)
+		end
 		if value then
 			valueLabel.Text = string.format('%.1f', math.max(value, 0))
 		end
