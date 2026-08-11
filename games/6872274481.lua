@@ -11755,33 +11755,57 @@ run(function()
 
             if DeviceIcon and DeviceIcon.Enabled and ent.Player then
                 local function getPlayerDevice(plr)
-                    local val = plr:GetAttribute('UserInputType') or 'Unknown'
-                    if not val then return 'Unknown' end
+                    local val = plr:GetAttribute('UserInputType')
+                    if not val then return nil end
                     val = val:upper()
                     if val == 'MOBILE' then return 'Mobile'
                     elseif val == 'GAMEPAD' or val == 'CONTROLLER' then return 'Controller'
                     else return 'PC' end
                 end
+                -- Plain short text instead of raw emoji glyphs: Roblox's legacy
+                -- fonts (Arial included) don't reliably have glyphs for every emoji
+                -- codepoint used here, so some players silently rendered a blank
+                -- box instead of an icon. Text always renders.
+                local deviceShort = { Mobile = 'MOB', Controller = 'CTRL', PC = 'PC' }
+                local deviceLabel = Instance.new('TextLabel')
+                deviceLabel.Name = 'DeviceIcon'
+                deviceLabel.Size = udim2fromOffset(32, 22)
+                deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
+                deviceLabel.BackgroundTransparency = 1
+                deviceLabel.BorderSizePixel = 0
+                deviceLabel.RichText = false
+                deviceLabel.TextScaled = true
+                deviceLabel.TextSize = 16
+                deviceLabel.TextStrokeTransparency = 0.5
+                deviceLabel.TextStrokeColor3 = color3new()
+                deviceLabel.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+                deviceLabel.TextColor3 = Color3.new(1, 1, 1)
+                deviceLabel.Parent = nametag
+
                 local deviceType = getPlayerDevice(ent.Player)
                 if deviceType then
-                    local deviceEmoji = {Mobile = '📱', PC = '🖥', Controller = '🎮', Unknown = '❔'}
-                    local deviceLabel = Instance.new('TextLabel')
-                    deviceLabel.Name = 'DeviceIcon'
-                    deviceLabel.Size = udim2fromOffset(22, 22)
-                    deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
-                    deviceLabel.BackgroundTransparency = 1
-                    deviceLabel.BorderSizePixel = 0
-                    deviceLabel.Text = deviceEmoji[deviceType] or ''
-                    deviceLabel.RichText = false
-                    deviceLabel.TextScaled = false
-                    deviceLabel.TextSize = 16
-                    deviceLabel.FontFace = Font.fromEnum(Enum.Font.Arial)
-                    deviceLabel.TextColor3 = Color3.new(1, 1, 1)
-                    deviceLabel.Parent = nametag
+                    deviceLabel.Text = deviceShort[deviceType] or ''
+                else
+                    -- UserInputType hasn't replicated yet for a just-joined player --
+                    -- pick it up the moment it does instead of leaving the label blank
+                    -- for the rest of the match.
+                    local deviceConn
+                    deviceConn = ent.Player:GetAttributeChangedSignal('UserInputType'):Connect(function()
+                        if not deviceLabel.Parent then
+                            if deviceConn then deviceConn:Disconnect() end
+                            return
+                        end
+                        local newType = getPlayerDevice(ent.Player)
+                        if newType then
+                            deviceLabel.Text = deviceShort[newType] or ''
+                            if deviceConn then deviceConn:Disconnect() end
+                        end
+                    end)
+                    NameTags:Clean(deviceConn)
                 end
             end
 
-            if Rank.Enabled and ent.Player and not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) or (getAccountTier(ent.Player) >= 2 and getAccountTier(lplr) <= 1) then
+            if Rank.Enabled and ent.Player and (not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) or (getAccountTier(ent.Player) >= 2 and getAccountTier(lplr) <= 1)) then
                 local rankIcon = Instance.new('ImageLabel')
                 rankIcon.Name = 'RankIcon'
                 rankIcon.Size = udim2fromOffset(30, 30)
@@ -11797,18 +11821,21 @@ run(function()
                     if not plr then return end
                     if not rankIcon or not rankIcon.Parent then return end
 
-                    local ok, success, data = pcall(function()
-                        return bedwars.Client:Get(remotes.Ranks):CallServerAsync({ plr.UserId }):await()
+                    -- store.rank[plr].async() is the same cached rank-fetch helper
+                    -- (bedwars.Client:Get('FetchRanks'):CallServer(...)) other parts
+                    -- of the file already rely on -- the old code here called
+                    -- bedwars.Client:Get(remotes.Ranks) instead, but 'Ranks' was never
+                    -- a defined key in the remotes table, so that Get() always failed
+                    -- and the pcall below silently ate the error every single time.
+                    local ok, division = pcall(function()
+                        return store.rank[plr].async()
                     end)
 
                     if vain.ThreadFix then setthreadidentity(8) end
 
-                    if ok and success and type(data) == "table" then
-                        local division = data[1] and data[1].rankDivision
-                        if division and bedwars.RankMeta and bedwars.RankMeta[division] then
-                            if rankIcon and rankIcon.Parent then
-                                rankIcon.Image = bedwars.RankMeta[division].image
-                            end
+                    if ok and division and bedwars.RankMeta and bedwars.RankMeta[division] then
+                        if rankIcon and rankIcon.Parent then
+                            rankIcon.Image = bedwars.RankMeta[division].image
                         end
                     end
                 end)

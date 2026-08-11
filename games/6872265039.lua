@@ -15,7 +15,24 @@ local uipallet = vain.Libraries.uipallet
 local getcustomasset = vain.Libraries.getcustomasset
 local bedwars = {}
 local gameCamera = workspace.CurrentCamera
-local store = { inventories = {} }
+local rankCache = {}
+local store = { inventories = {}, rank = setmetatable({}, {
+	__index = function(self, index)
+		return {
+			async = function()
+				if rankCache[index] then return rankCache[index] end
+				if index then
+					local rank = bedwars.Client:Get('FetchRanks'):CallServer({index.UserId})
+					if typeof(rank) == 'table' and rank[1] and rank[1].rankDivision then
+						rankCache[index] = rank[1].rankDivision
+						return rankCache[index]
+					end
+				end
+				return nil
+			end,
+		}
+	end
+}) }
 local getfontsize = vain.Libraries.getfontsize
 -- No "Map"/"Worlds" folder exists in the lobby (that's match-only geography),
 -- so this stays nil here -- the couple of exotic Kit Tracker branches that use
@@ -202,7 +219,12 @@ run(function()
 	bedwars = setmetatable({
 		Client = Client,
 		CrateItemMeta = debug.getupvalue(Flamework.resolveDependency('client/controllers/global/reward-crate/crate-controller@CrateController').onStart, 3),
-		Store = require(lplr.PlayerScripts.TS.ui.store).ClientStore
+		Store = require(lplr.PlayerScripts.TS.ui.store).ClientStore,
+		-- RankMeta isn't a Knit controller (the __index fallback below assumes
+		-- everything is), it's this module's own export -- without listing it
+		-- explicitly here, Name Tags' Rank icon would resolve bedwars.RankMeta to
+		-- Knit.Controllers.RankMeta (nil) and never find an image for any division.
+		RankMeta = require(replicatedStorage.TS.rank['rank-meta']).RankMeta
 	}, {
 		__index = function(self, ind)
 			rawset(self, ind, Knit.Controllers[ind])
@@ -806,33 +828,57 @@ pcall(function()
 
             if DeviceIcon and DeviceIcon.Enabled and ent.Player then
                 local function getPlayerDevice(plr)
-                    local val = plr:GetAttribute('UserInputType') or 'Unknown'
-                    if not val then return 'Unknown' end
+                    local val = plr:GetAttribute('UserInputType')
+                    if not val then return nil end
                     val = val:upper()
                     if val == 'MOBILE' then return 'Mobile'
                     elseif val == 'GAMEPAD' or val == 'CONTROLLER' then return 'Controller'
                     else return 'PC' end
                 end
+                -- Plain short text instead of raw emoji glyphs: Roblox's legacy
+                -- fonts (Arial included) don't reliably have glyphs for every emoji
+                -- codepoint used here, so some players silently rendered a blank
+                -- box instead of an icon. Text always renders.
+                local deviceShort = { Mobile = 'MOB', Controller = 'CTRL', PC = 'PC' }
+                local deviceLabel = Instance.new('TextLabel')
+                deviceLabel.Name = 'DeviceIcon'
+                deviceLabel.Size = udim2fromOffset(32, 22)
+                deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
+                deviceLabel.BackgroundTransparency = 1
+                deviceLabel.BorderSizePixel = 0
+                deviceLabel.RichText = false
+                deviceLabel.TextScaled = true
+                deviceLabel.TextSize = 16
+                deviceLabel.TextStrokeTransparency = 0.5
+                deviceLabel.TextStrokeColor3 = color3new()
+                deviceLabel.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+                deviceLabel.TextColor3 = Color3.new(1, 1, 1)
+                deviceLabel.Parent = nametag
+
                 local deviceType = getPlayerDevice(ent.Player)
                 if deviceType then
-                    local deviceEmoji = {Mobile = '📱', PC = '🖥', Controller = '🎮', Unknown = '❔'}
-                    local deviceLabel = Instance.new('TextLabel')
-                    deviceLabel.Name = 'DeviceIcon'
-                    deviceLabel.Size = udim2fromOffset(22, 22)
-                    deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
-                    deviceLabel.BackgroundTransparency = 1
-                    deviceLabel.BorderSizePixel = 0
-                    deviceLabel.Text = deviceEmoji[deviceType] or ''
-                    deviceLabel.RichText = false
-                    deviceLabel.TextScaled = false
-                    deviceLabel.TextSize = 16
-                    deviceLabel.FontFace = Font.fromEnum(Enum.Font.Arial)
-                    deviceLabel.TextColor3 = Color3.new(1, 1, 1)
-                    deviceLabel.Parent = nametag
+                    deviceLabel.Text = deviceShort[deviceType] or ''
+                else
+                    -- UserInputType hasn't replicated yet for a just-joined player --
+                    -- pick it up the moment it does instead of leaving the label blank
+                    -- for the rest of the match.
+                    local deviceConn
+                    deviceConn = ent.Player:GetAttributeChangedSignal('UserInputType'):Connect(function()
+                        if not deviceLabel.Parent then
+                            if deviceConn then deviceConn:Disconnect() end
+                            return
+                        end
+                        local newType = getPlayerDevice(ent.Player)
+                        if newType then
+                            deviceLabel.Text = deviceShort[newType] or ''
+                            if deviceConn then deviceConn:Disconnect() end
+                        end
+                    end)
+                    NameTags:Clean(deviceConn)
                 end
             end
 
-            if Rank.Enabled and ent.Player and not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) or (getAccountTier(ent.Player) >= 2 and getAccountTier(lplr) <= 1) then
+            if Rank.Enabled and ent.Player and (not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) or (getAccountTier(ent.Player) >= 2 and getAccountTier(lplr) <= 1)) then
                 local rankIcon = Instance.new('ImageLabel')
                 rankIcon.Name = 'RankIcon'
                 rankIcon.Size = udim2fromOffset(30, 30)
@@ -848,18 +894,21 @@ pcall(function()
                     if not plr then return end
                     if not rankIcon or not rankIcon.Parent then return end
 
-                    local ok, success, data = pcall(function()
-                        return bedwars.Client:Get(remotes.Ranks):CallServerAsync({ plr.UserId }):await()
+                    -- store.rank[plr].async() calls the working 'FetchRanks' remote
+                    -- with :CallServer(...) and caches the result -- the old code
+                    -- here called bedwars.Client:Get(remotes.Ranks) instead, but
+                    -- 'Ranks' was never a defined key in the remotes table (this file
+                    -- even had a comment admitting it: "remotes.Ranks is just nil...
+                    -- no-ops"), so that Get() always failed silently.
+                    local ok, division = pcall(function()
+                        return store.rank[plr].async()
                     end)
 
                     if vain.ThreadFix then setthreadidentity(8) end
 
-                    if ok and success and type(data) == "table" then
-                        local division = data[1] and data[1].rankDivision
-                        if division and bedwars.RankMeta and bedwars.RankMeta[division] then
-                            if rankIcon and rankIcon.Parent then
-                                rankIcon.Image = bedwars.RankMeta[division].image
-                            end
+                    if ok and division and bedwars.RankMeta and bedwars.RankMeta[division] then
+                        if rankIcon and rankIcon.Parent then
+                            rankIcon.Image = bedwars.RankMeta[division].image
                         end
                     end
                 end)
