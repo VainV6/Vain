@@ -8847,6 +8847,7 @@ run(function()
     	Toggles[i] = { Objects = {} }
     	Toggles[i].Toggle = Atmosphere:CreateToggle({
     		Name = i,
+    		Tooltip = 'Adds a custom ' .. i .. ' lighting object',
     		Function = function(callback)
     			if Atmosphere.Enabled then
     				Atmosphere:Toggle()
@@ -8875,6 +8876,7 @@ run(function()
     		elseif v2 == 'Color' then
     			Toggles[i].Objects[i2] = Atmosphere:CreateColorSlider({
     				Name = i2,
+    				Tooltip = 'Value for the ' .. i2 .. ' property',
     				Function = function()
     					if Atmosphere.Enabled then
     						Atmosphere:Toggle()
@@ -8950,6 +8952,7 @@ run(function()
     })
     FadeIn = Breadcrumbs:CreateColorSlider({
     	Name = 'Fade In',
+    	Tooltip = 'Starting color of the trail',
     	Function = function(hue, sat, val)
     		if trail then
     			trail.Color = ColorSequence.new(
@@ -8961,6 +8964,7 @@ run(function()
     })
     FadeOut = Breadcrumbs:CreateColorSlider({
     	Name = 'Fade Out',
+    	Tooltip = 'Ending color of the trail',
     	Function = function(hue, sat, val)
     		if trail then
     			trail.Color =
@@ -8970,6 +8974,7 @@ run(function()
     })
     Lifetime = Breadcrumbs:CreateSlider({
     	Name = 'Lifetime',
+    	Tooltip = 'How long the trail lingers before fading',
     	Min = 1,
     	Max = 5,
     	Default = 3,
@@ -8985,6 +8990,7 @@ run(function()
     })
     Thickness = Breadcrumbs:CreateSlider({
     	Name = 'Thickness',
+    	Tooltip = 'Thickness of the trail',
     	Min = 0,
     	Max = 2,
     	Default = 0.1,
