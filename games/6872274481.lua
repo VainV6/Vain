@@ -78,6 +78,15 @@ local store = {
 	attackReach = 0,
 	attackReachUpdate = tick(),
 	damageBlockFail = tick(),
+	-- Only ever written reactively (Killaura's ability-tracking threads set
+	-- these on a Sophia/Terra ability-state transition), so anything checking
+	-- `tick() - store.X` before that first transition -- e.g. Silent Aura or
+	-- Killaura's own getAttackData, which both run this check every loop tick
+	-- -- got `tick() - nil` and crashed with "arithmetic (sub) on number and
+	-- nil". 0 keeps the same "not currently blocking" default the check wants.
+	silasAbilityTime = 0,
+	terraStompTime = 0,
+	terraKickTime = 0,
 	hand = {},
 	rank = setmetatable({}, {
 		__index = function(self, index)
@@ -4477,7 +4486,7 @@ run(function()
 
 	Velocity = vain.Categories.Combat:CreateModule({
 		Name = 'Velocity',
-		Tooltip = 'allows you to edit ur velocity',
+		Tooltip = 'Allows you to edit your velocity',
 		Function = function(callback)
 			if callback then
 				old = bedwars.KnockbackUtil.applyKnockback
@@ -6927,8 +6936,18 @@ run(function()
                     end
 
                     pcall(function()
-                        if entitylib.isAlive and entitylib.character.HumanoidRootPart and RangeCirclePart then
-                            RangeCirclePart.Position = entitylib.character.HumanoidRootPart.Position - Vector3.new(0, entitylib.character.Humanoid.HipHeight, 0)
+                        -- Silently pcall-swallowed before, so any nil in this chain (a stale
+                        -- entitylib.character mid-respawn, a Humanoid without a real HipHeight,
+                        -- etc.) meant the circle just never moved again after its first frame --
+                        -- "shows up but doesn't stick to the player". Guard each piece so a
+                        -- missing HipHeight falls back instead of aborting the whole update.
+                        local char = entitylib.isAlive and entitylib.character
+                        local root = char and char.HumanoidRootPart
+                        if root then
+                            local hip = (char.Humanoid and char.Humanoid.HipHeight) or char.HipHeight or 0
+                            if RangeCirclePart then
+                                RangeCirclePart.Position = root.Position - Vector3.new(0, hip, 0)
+                            end
                         end
                     end)
 
@@ -7820,8 +7839,7 @@ run(function()
 
     KeybindFix = vain.Categories.Utility:CreateModule({
         Name = 'Keybind fix',
-        Tooltip = "Hooks BedWars' own keybind registration so changing one key through the game's settings menu no longer silently resets every other key back to default.",
-        Default = true,
+        Tooltip = "Prevent keybind reset",
         Function = function(callback)
             if callback then
                 local klc = bedwars.KeybindLoadController
@@ -7854,6 +7872,13 @@ run(function()
             end
         end,
     })
+    -- CreateModule has no concept of a module-level "Default" (that's an
+    -- option-level thing) -- it's never referenced anywhere in CreateModule,
+    -- so the old `Default = true` field silently did nothing and the hooks
+    -- above never actually installed unless the player happened to click this
+    -- on manually. bedwars is fully populated by this point in the file (see
+    -- the setmetatable block far above), so it's safe to enable immediately.
+    KeybindFix:Toggle()
 end)
 
 
@@ -8661,7 +8686,7 @@ run(function()
 	DesirePAWorkMode = ProjectileAimbot:CreateDropdown({
 		Name = 'PA Work Mode',
 		List = {'First Person', 'Third Person', 'Both'},
-		Default = 'Both',
+		Default = 'Third Person',
 		Tooltip = 'Which perspective the aimbot works in'
 	})
 

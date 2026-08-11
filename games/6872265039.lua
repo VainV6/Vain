@@ -193,8 +193,7 @@ run(function()
 
 	KeybindFix = vain.Categories.Utility:CreateModule({
 		Name = 'Keybind fix',
-		Tooltip = "Hooks BedWars' own keybind registration so changing one key through the game's settings menu no longer silently resets every other key back to default.",
-		Default = true,
+		Tooltip = "Prevent keybind reset",
 		Function = function(callback)
 			if callback then
 				local klc = bedwars.KeybindLoadController
@@ -227,6 +226,12 @@ run(function()
 			end
 		end,
 	})
+	-- CreateModule has no concept of a module-level "Default" (that's an
+	-- option-level thing) -- the old `Default = true` field silently did
+	-- nothing and the hooks above never actually installed unless the player
+	-- happened to click this on manually. bedwars is fully populated by this
+	-- point in the file, so it's safe to enable immediately.
+	KeybindFix:Toggle()
 end)
 
 

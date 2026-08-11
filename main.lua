@@ -241,7 +241,7 @@ local function finishLoading()
 			pcall(function()
 				vain:CreateNotification(
 					'Testing Mode',
-					"You're running Vain from the '"..branch.."' branch, not production.",
+					"Using test environment ('"..branch.."' branch, not production).",
 					12,
 					'warning'
 				)
