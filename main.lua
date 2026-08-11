@@ -328,6 +328,7 @@ if not shared.VainIndependent then
 	-- existed would keep loading forever on every inject, no matter how many
 	-- fixes landed upstream.
 	local hasGameFile = isfile(gamePath)
+	local probedBody
 	if not hasGameFile then
 		-- Probe first so a 404 place (no game-specific file) is skipped quietly
 		-- instead of downloadFile hard-erroring on every place without one. This
@@ -338,9 +339,25 @@ if not shared.VainIndependent then
 			return game:HttpGet('https://raw.githubusercontent.com/VainV6/Vain/'..readfile('vain/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
 		end)
 		hasGameFile = suc and res ~= '404: Not Found' and not isHttpError(res)
+		-- Keep the body already fetched instead of throwing it away and having
+		-- downloadFile immediately re-fetch the exact same (often 1MB+) URL --
+		-- on a fresh cache this was a guaranteed double-download of the biggest
+		-- file this whole chain serves. Only reuse it if it's a complete file
+		-- (has the VAINEOF sentinel); otherwise fall through to downloadFile's
+		-- own retry loop like before.
+		if hasGameFile and res:find('VAINEOF') then
+			probedBody = res
+		end
 	end
 	if hasGameFile then
-		local gameLoader = loadstring(downloadFile(gamePath), tostring(game.PlaceId))
+		local gameContent
+		if probedBody then
+			gameContent = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vain updates.\n'..probedBody
+			writefile(gamePath, gameContent)
+		else
+			gameContent = downloadFile(gamePath)
+		end
+		local gameLoader = loadstring(gameContent, tostring(game.PlaceId))
 		if gameLoader then
 			local ok, err = pcall(gameLoader)
 			if not ok then warn('[Vain] '..gamePath..' failed: ' .. tostring(err)) end
