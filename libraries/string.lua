@@ -17,3 +17,4 @@ function StringUtil:GenerateBytes(Length: number)
 end
 
 return StringUtil
+--VAINEOF

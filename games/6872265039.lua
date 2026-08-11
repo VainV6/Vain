@@ -4,6 +4,7 @@ local cloneref = cloneref or function(obj) return obj end
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local inputService = cloneref(game:GetService('UserInputService'))
+local runService = cloneref(game:GetService('RunService'))
 
 local lplr = playersService.LocalPlayer
 local vain = shared.vain
@@ -11,10 +12,26 @@ local entitylib = vain.Libraries.entity
 local sessioninfo = vain.Libraries.sessioninfo
 local color = vain.Libraries.color
 local uipallet = vain.Libraries.uipallet
+local getcustomasset = vain.Libraries.getcustomasset
 local bedwars = {}
+local gameCamera = workspace.CurrentCamera
 
 local function notif(...)
 	return vain:CreateNotification(...)
+end
+
+local function getAccountTier(player)
+	if getgenv().getAccountTier then
+		return getgenv().getAccountTier(player)
+	end
+	return 0
+end
+
+local function isEnemy(ent)
+	if not ent then return false end
+	if ent.Targetable ~= nil then return ent.Targetable end
+	local ok, res = pcall(entitylib.targetCheck, ent)
+	return ok and res or false
 end
 
 run(function()
@@ -238,3 +255,4 @@ end)
 shared.bedwars = bedwars
 shared.GlobalBedwars = bedwars
 shared.VapeBWLoaded = true
+--VAINEOF

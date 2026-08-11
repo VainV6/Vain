@@ -2151,3 +2151,5 @@ vain:Clean(function()
 	end
 	table.clear(vainEvents)
 end)
+
+--VAINEOF

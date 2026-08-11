@@ -1364,3 +1364,5 @@ run(function()
 	Notify = AutoTransform:CreateToggle({ Name = 'Notify', Default = true,
 		Tooltip = 'Notify each time it transforms your country into a formable.' })
 end)
+
+--VAINEOF

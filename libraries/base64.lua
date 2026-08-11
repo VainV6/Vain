@@ -71,3 +71,4 @@ function base64.decode(input)
 end
 
 return base64
+--VAINEOF

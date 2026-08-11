@@ -30,11 +30,20 @@ local delfile = delfile or function(file) writefile(file, '') end
 local function isHttpError(res)
 	return type(res) ~= 'string' or res == '' or res:match('^%s*%d%d%d:%s') ~= nil
 end
+-- Large .lua files sometimes download truncated (HTTP 200, but the body got cut
+-- off mid-transfer) -- that still loadstrings fine (valid Lua up to the cut) but
+-- silently registers only PART of the file's modules, and the truncated copy then
+-- gets cached and reused on every later inject. Every .lua file this repo serves
+-- ends with a --VAINEOF sentinel line; refuse to accept/cache a .lua body that's
+-- missing it, retrying the fetch a few times first.
+local function isTruncatedLua(path, res)
+	return path:find('%.lua') ~= nil and not res:find('VAINEOF')
+end
 local function downloadFile(path, func)
-	-- self-heal a previously-cached error body
+	-- self-heal a previously-cached error body or truncated file
 	if isfile(path) and path:find('%.lua') then
 		local cached = readfile(path)
-		if cached:match('^%s*%d%d%d:%s') or cached:match('^%-%-This watermark[^\n]*\n%s*%d%d%d:%s') then
+		if cached:match('^%s*%d%d%d:%s') or cached:match('^%-%-This watermark[^\n]*\n%s*%d%d%d:%s') or isTruncatedLua(path, cached) then
 			delfile(path)
 		end
 	end
@@ -45,11 +54,24 @@ local function downloadFile(path, func)
 		local ok, raw = pcall(readfile, 'vain/profiles/commit.txt')
 		local commit = (ok and type(raw) == 'string' and raw or ''):match('^%s*(.-)%s*$')
 		if commit == '' then commit = 'main' end
-		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/VainV6/Vain/'..commit..'/'..select(1, path:gsub('vain/', '')), true)
-		end)
-		if not suc or isHttpError(res) then
-			error('Vain failed to download '..path..' (ref '..commit..'): '..tostring(res))
+		local res
+		for attempt = 1, 5 do
+			local suc
+			suc, res = pcall(function()
+				return game:HttpGet('https://raw.githubusercontent.com/VainV6/Vain/'..commit..'/'..select(1, path:gsub('vain/', '')), true)
+			end)
+			if not suc or isHttpError(res) then
+				if attempt == 5 then error('Vain failed to download '..path..' (ref '..commit..'): '..tostring(res)) end
+				res = nil
+			elseif isTruncatedLua(path, res) then
+				res = nil
+			else
+				break
+			end
+			if not res then task.wait(0.3) end
+		end
+		if not res then
+			error('Vain failed to download '..path..' (ref '..commit..'): incomplete after 5 attempts')
 		end
 		if path:find('.lua') then
 			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vain updates.\n'..res
@@ -313,3 +335,5 @@ else
 	vain.Init = finishLoading
 	return vain
 end
+
+--VAINEOF

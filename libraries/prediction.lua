@@ -329,3 +329,4 @@ function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, tar
 end
 
 return module
+--VAINEOF

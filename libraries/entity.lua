@@ -458,3 +458,5 @@ end
 entitylib.start()
 
 return entitylib
+
+--VAINEOF

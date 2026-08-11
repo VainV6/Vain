@@ -839,3 +839,5 @@ run(function()
 	Notify = AutoTrain:CreateToggle({ Name = 'Notify', Default = false,
 		Tooltip = 'Show a notification each time a batch is trained.' })
 end)
+
+--VAINEOF

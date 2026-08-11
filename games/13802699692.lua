@@ -450,3 +450,5 @@ run(function()
 		Tooltip = 'Commit your ENTIRE army to the attack (no home guard). Faster rush, weaker defence.'
 	})
 end)
+
+--VAINEOF

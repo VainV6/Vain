@@ -473,3 +473,5 @@ run(function()
 		Tooltip = 'Seconds between strikes (your knife cooldown).' })
 	Notify = KillAura:CreateToggle({ Name = 'Notify', Default = false })
 end)
+
+--VAINEOF

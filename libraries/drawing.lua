@@ -189,3 +189,4 @@ if isactor and not Drawing then
 else
 	return id
 end
+--VAINEOF
