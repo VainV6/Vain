@@ -27586,6 +27586,430 @@ run(function()
 end)
 
 run(function()
+    local LootDisplay, Highlight, TargetClass, ClassDropdown, SizeSlider, ShowOwnTeam
+    local ItemWhitelist, ShowAnyItem
+    local DistanceFilter, MinDistanceSlider, MaxDistanceSlider
+    local LootThresholds = {}
+
+    local LOOT_RES = {
+        { key = 'iron',      item = 'iron',          display = 'Iron',           color = Color3.fromRGB(210, 210, 210) },
+        { key = 'gold',      item = 'gold',          display = 'Gold',           color = Color3.fromRGB(255, 215, 90)  },
+        { key = 'emerald',   item = 'emerald',       display = 'Emeralds',       color = Color3.fromRGB(80, 235, 120)  },
+        { key = 'diamond',   item = 'diamond',       display = 'Diamonds',       color = Color3.fromRGB(120, 225, 255) },
+        { key = 'telepearl', item = 'telepearl',     display = 'Telepearls',     color = Color3.fromRGB(200, 120, 255) },
+        { key = 'vitality',  item = 'vitality_star', display = 'Vitality Stars', color = Color3.fromRGB(140, 235, 140) },
+        { key = 'crit',      item = 'crit_star',     display = 'Crit Stars',     color = Color3.fromRGB(255, 220, 90)  },
+        { key = 'bee',       item = 'bee',           display = 'Bees',           color = Color3.fromRGB(255, 210, 60)  },
+        { key = 'arrow',     item = 'arrow',         display = 'Arrows',         color = Color3.fromRGB(230, 230, 230) },
+        { key = 'tnt',       item = 'tnt',           display = 'TNT',   off = true, color = Color3.fromRGB(255, 120, 90)  },
+        { key = 'block',     match = 'wool_', icon = 'wool_white', display = 'Blocks', off = true, color = Color3.fromRGB(235, 235, 235) },
+        { key = 'tesla',     match = 'tesla', icon = 'tesla', iconAlt = 'tesla_trap', display = 'Teslas', off = true, color = Color3.fromRGB(120, 220, 255) },
+    }
+    local ITEM_TO_KEY = {}
+    for _, r in LOOT_RES do if r.item then ITEM_TO_KEY[r.item] = r.key end end
+    local DEFAULT_WHITELIST = {}
+    for _, r in LOOT_RES do if not r.off then table.insert(DEFAULT_WHITELIST, r.display) end end
+
+    local iconCache = {}
+    local function lootIcon(r, realItem)
+        local id = realItem or r.icon or r.item or r.match
+        if iconCache[id] ~= nil then return iconCache[id] end
+        local img = ''
+        for _, cand in { realItem, r.icon, r.item, r.iconAlt } do
+            if cand and img == '' then
+                pcall(function()
+                    if bedwars.getIcon then img = bedwars.getIcon({ itemType = cand }, true) or '' end
+                    if img == '' then
+                        local meta = bedwars.ItemMeta and bedwars.ItemMeta[cand]
+                        if meta and meta.image then img = meta.image end
+                    end
+                end)
+            end
+        end
+        iconCache[id] = img
+        return img
+    end
+
+    local function tally(plr)
+        local counts, seen = {}, {}
+        for _, r in LOOT_RES do counts[r.key] = 0 end
+        local inv = plr and store.inventories[plr]
+        if inv and type(inv.items) == 'table' then
+            for _, v in inv.items do
+                if v and v.itemType then
+                    local amt = tonumber(v.amount) or 0
+                    local key = ITEM_TO_KEY[v.itemType]
+                    if not key then
+                        for _, r in LOOT_RES do
+                            if r.match and v.itemType:sub(1, #r.match) == r.match then key = r.key break end
+                        end
+                    end
+                    if key then
+                        counts[key] = counts[key] + amt
+                        seen[key] = seen[key] or v.itemType
+                    end
+                end
+            end
+        end
+        return counts, seen
+    end
+    local DISPLAY_TO_KEY = {}
+    for _, r in LOOT_RES do DISPLAY_TO_KEY[r.display] = r.key end
+    local function resShown(key)
+        if ShowAnyItem and ShowAnyItem.Enabled then return true end
+        if not ItemWhitelist then return true end
+        for _, name in ItemWhitelist.ListEnabled do
+            if DISPLAY_TO_KEY[name] == key then return true end
+        end
+        return false
+    end
+
+    local classMetaFn
+    local function getClassMeta()
+        if classMetaFn ~= nil then return classMetaFn or nil end
+        local ok, mod = pcall(function()
+            return require(replicatedStorage.TS.games.bedwars.kit.class['bedwars-class-meta']).getBedwarsClassMeta
+        end)
+        classMetaFn = (ok and mod) or false
+        return classMetaFn or nil
+    end
+    local classNameCache = {}
+    local function classDisplay(classId)
+        if classId == nil or classId == 0 then return nil end
+        if classNameCache[classId] ~= nil then return classNameCache[classId] or nil end
+        local name
+        local fn = getClassMeta()
+        if fn then
+            pcall(function()
+                local meta = fn(classId)
+                if meta and meta.display then name = tostring(meta.display) end
+            end)
+        end
+        classNameCache[classId] = name or false
+        return name
+    end
+    local function playerClassName(plr)
+        if not plr then return nil end
+        local kit = plr:GetAttribute('PlayingAsKits') or plr:GetAttribute('PlayingAsKit')
+        if not kit or kit == 'none' then return nil end
+        local meta = bedwars.BedwarsKitMeta and bedwars.BedwarsKitMeta[kit]
+        return meta and classDisplay(meta.kitClass)
+    end
+    local function allClassNames()
+        local set, list = {}, { 'Any' }
+        pcall(function()
+            for _, meta in pairs(bedwars.BedwarsKitMeta or {}) do
+                if type(meta) == 'table' then
+                    local n = classDisplay(meta.kitClass)
+                    if n and not set[n] then set[n] = true; list[#list + 1] = n end
+                end
+            end
+        end)
+        table.sort(list, function(a, b)
+            if a == 'Any' then return true end
+            if b == 'Any' then return false end
+            return a < b
+        end)
+        return list
+    end
+
+    local function isHighlighted(counts)
+        if not (Highlight and Highlight.Enabled) then return false end
+        for _, r in LOOT_RES do
+            if resShown(r.key) then
+                local s = LootThresholds[r.key]
+                if s and (counts[r.key] or 0) >= (s.Value or math.huge) then return true end
+            end
+        end
+        return false
+    end
+
+    local Reference = {}
+    local Folder = Instance.new('Folder')
+    Folder.Parent = vain.gui
+
+    local highlights = {}
+    local function clearGlow(ent)
+        local hl = highlights[ent]
+        if hl then hl:Destroy() highlights[ent] = nil end
+    end
+    local function clear(ent)
+        local bb = Reference[ent]
+        if bb then bb:Destroy() Reference[ent] = nil end
+        clearGlow(ent)
+    end
+    local function clearAll()
+        for ent in Reference do clear(ent) end
+        for ent in highlights do clearGlow(ent) end
+        Folder:ClearAllChildren()
+    end
+
+    local function setGlow(ent, on)
+        if on then
+            local hl = highlights[ent]
+            if not hl or not hl.Parent then
+                hl = Instance.new('Highlight')
+                hl.Name = 'VainLootGlow'
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.FillColor = Color3.fromRGB(255, 70, 70)
+                hl.OutlineColor = Color3.fromRGB(255, 70, 70)
+                hl.FillTransparency = 0.6
+                hl.OutlineTransparency = 0
+                hl.Adornee = ent.Character
+                hl.Parent = ent.Character
+                highlights[ent] = hl
+            elseif hl.Adornee ~= ent.Character then
+                hl.Adornee = ent.Character
+            end
+        else
+            clearGlow(ent)
+        end
+    end
+
+    local function refresh(ent)
+        if not (LootDisplay and LootDisplay.Enabled) then return end
+        local plr = ent.Player
+        local adornee = ent.Character and (ent.Character.PrimaryPart or ent.Character:FindFirstChild('HumanoidRootPart'))
+        if not (plr and adornee) then clear(ent) return end
+
+        if not (ShowOwnTeam and ShowOwnTeam.Enabled) and plr ~= lplr and not isEnemy(ent) then
+            clear(ent) return
+        end
+
+        if TargetClass and TargetClass.Enabled and ClassDropdown and ClassDropdown.Value ~= 'Any' then
+            if playerClassName(plr) ~= ClassDropdown.Value then clear(ent) return end
+        end
+
+        if DistanceFilter and DistanceFilter.Enabled and entitylib.character and entitylib.character.RootPart then
+            local dist = (adornee.Position - entitylib.character.RootPart.Position).Magnitude
+            if dist < MinDistanceSlider.Value or dist > MaxDistanceSlider.Value then clear(ent) return end
+        end
+
+        local counts, seen = tally(plr)
+
+        local bb = Reference[ent]
+        if not bb then
+            bb = Instance.new('BillboardGui')
+            bb.Name = 'LootDisplay'
+            bb.AlwaysOnTop = true
+            bb.Size = UDim2.fromOffset(640, 40)
+            bb.StudsOffsetWorldSpace = Vector3.new(0, -3.2, 0)
+            bb.ClipsDescendants = false
+            local plate = Instance.new('Frame')
+            plate.Name = 'Plate'
+            plate.AnchorPoint = Vector2.new(0.5, 0.5)
+            plate.Position = UDim2.fromScale(0.5, 0.5)
+            plate.AutomaticSize = Enum.AutomaticSize.X
+            plate.Size = UDim2.fromOffset(0, 38)
+            plate.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+            plate.BackgroundTransparency = 0.25
+            plate.BorderSizePixel = 0
+            local pc = Instance.new('UICorner') pc.CornerRadius = UDim.new(0, 8) pc.Parent = plate
+            local ps = Instance.new('UIStroke') ps.Color = Color3.fromRGB(0, 0, 0) ps.Thickness = 2 ps.Transparency = 0.3 ps.Parent = plate
+            local pad = Instance.new('UIPadding')
+            pad.PaddingLeft = UDim.new(0, 10) pad.PaddingRight = UDim.new(0, 10)
+            pad.Parent = plate
+            local row = Instance.new('Frame')
+            row.Name = 'Row'
+            row.BackgroundTransparency = 1
+            row.AutomaticSize = Enum.AutomaticSize.X
+            row.Size = UDim2.fromOffset(0, 38)
+            local layout = Instance.new('UIListLayout')
+            layout.FillDirection = Enum.FillDirection.Horizontal
+            layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            layout.VerticalAlignment = Enum.VerticalAlignment.Center
+            layout.Padding = UDim.new(0, 10)
+            layout.Parent = row
+            row.Parent = plate
+            plate.Parent = bb
+            bb.Parent = Folder
+            Reference[ent] = bb
+        end
+        bb.Adornee = adornee
+        local scale = (SizeSlider and SizeSlider.Value or 100) / 100
+        local H = math.floor(34 * scale)
+        local ICON = math.floor(30 * scale)
+        local TXT = math.max(8, math.floor(22 * scale))
+        bb.Size = UDim2.fromOffset(math.floor(640 * scale), math.floor(40 * scale))
+        local plate = bb.Plate
+        plate.Size = UDim2.fromOffset(0, H + 4)
+        local row = plate.Row
+        row.Size = UDim2.fromOffset(0, H + 4)
+        for _, c in row:GetChildren() do
+            if not c:IsA('UIListLayout') then c:Destroy() end
+        end
+
+        setGlow(ent, isHighlighted(counts))
+        local any = false
+        for i, r in LOOT_RES do
+            local n = counts[r.key]
+            if n > 0 and resShown(r.key) then
+                any = true
+                local cell = Instance.new('Frame')
+                cell.BackgroundTransparency = 1
+                cell.AutomaticSize = Enum.AutomaticSize.X
+                cell.Size = UDim2.fromOffset(0, H)
+                cell.LayoutOrder = i
+                local cl = Instance.new('UIListLayout')
+                cl.FillDirection = Enum.FillDirection.Horizontal
+                cl.VerticalAlignment = Enum.VerticalAlignment.Center
+                cl.Padding = UDim.new(0, math.floor(3 * scale))
+                cl.Parent = cell
+                local icon = Instance.new('ImageLabel')
+                icon.BackgroundTransparency = 1
+                icon.Size = UDim2.fromOffset(ICON, ICON)
+                icon.LayoutOrder = 1
+                icon.Image = lootIcon(r, seen[r.key])
+                icon.Parent = cell
+                local amt = Instance.new('TextLabel')
+                amt.BackgroundTransparency = 1
+                amt.AutomaticSize = Enum.AutomaticSize.X
+                amt.Size = UDim2.fromOffset(0, H)
+                amt.LayoutOrder = 2
+                amt.Text = tostring(n)
+                amt.TextColor3 = Color3.new(1, 1, 1)
+                amt.TextStrokeColor3 = Color3.new(0, 0, 0)
+                amt.TextStrokeTransparency = 0
+                amt.TextSize = TXT
+                amt.Font = Enum.Font.GothamBold
+                amt.TextXAlignment = Enum.TextXAlignment.Left
+                amt.Parent = cell
+                cell.Parent = row
+            end
+        end
+        bb.Enabled = any
+    end
+
+    LootDisplay = vain.Categories.Render:CreateModule({
+        Name = 'Inventory ESP',
+        Tooltip = 'Shows each player\'s carried resources on a large plate under their name (visible from a distance). Toggle which resources appear + highlight when a threshold is crossed.',
+        Function = function(callback)
+            if callback then
+                for _, ent in entitylib.List do refresh(ent) end
+                LootDisplay:Clean(entitylib.Events.EntityAdded:Connect(refresh))
+                LootDisplay:Clean(entitylib.Events.EntityUpdated:Connect(refresh))
+                LootDisplay:Clean(entitylib.Events.EntityRemoved:Connect(clear))
+                LootDisplay:Clean(clearAll)
+                task.spawn(function()
+                    while LootDisplay.Enabled do
+                        for _, ent in entitylib.List do
+                            if ent.Player and bedwars.getInventory then
+                                pcall(function()
+                                    store.inventories[ent.Player] = bedwars.getInventory(ent.Player)
+                                end)
+                                pcall(refresh, ent)
+                            end
+                        end
+                        task.wait(0.5)
+                    end
+                end)
+            else
+                clearAll()
+            end
+        end,
+    })
+    local function rebuild()
+        for _, ent in entitylib.List do pcall(refresh, ent) end
+    end
+    SizeSlider = LootDisplay:CreateSlider({
+        Name = 'Size',
+        Tooltip = 'Scale of the loot plate (100 = default).',
+        Min = 30, Max = 200, Default = 65, Suffix = '%',
+        Function = rebuild,
+    })
+    ShowOwnTeam = LootDisplay:CreateToggle({
+        Name = 'Show Own Team', Default = false,
+        Tooltip = 'Also show loot on your own teammates. Off (default) = enemies only.',
+        Function = rebuild,
+    })
+    ShowAnyItem = LootDisplay:CreateToggle({
+        Name = 'Show Any Item',
+        Tooltip = 'Ignore the whitelist below and show every resource type carried, including ones not listed.',
+        Default = false,
+        Function = function(callback)
+            if ItemWhitelist then ItemWhitelist.Object.Visible = not callback end
+            rebuild()
+        end,
+    })
+    ItemWhitelist = LootDisplay:CreateTextList({
+        Name = 'Item Whitelist',
+        Tooltip = 'Which resources show on the loot plate. Click an entry to toggle it, or type one of: Iron, Gold, Emeralds, Diamonds, Telepearls, Vitality Stars, Crit Stars, Bees, Arrows, TNT, Blocks, Teslas.',
+        Placeholder = 'Iron, Gold, ...',
+        Default = DEFAULT_WHITELIST,
+        Darker = true,
+        Function = rebuild,
+    })
+    Highlight = LootDisplay:CreateToggle({
+        Name = 'Highlight On Threshold',
+        Tooltip = 'Glows a player red once they carry at least the threshold of any resource below.',
+        Default = false,
+        Function = function(callback)
+            for _, r in LOOT_RES do
+                local s = LootThresholds[r.key]
+                if s then s.Object.Visible = callback end
+            end
+            rebuild()
+        end,
+    })
+    LootThresholds.iron = LootDisplay:CreateSlider({ Name = 'Iron Threshold', Tooltip = 'Iron carried at/above this triggers the highlight glow', Min = 1, Max = 128, Default = 32, Suffix = 'iron', Visible = false })
+    LootThresholds.gold = LootDisplay:CreateSlider({ Name = 'Gold Threshold', Tooltip = 'Gold carried at/above this triggers the highlight glow', Min = 1, Max = 128, Default = 16, Suffix = 'gold', Visible = false })
+    LootThresholds.emerald = LootDisplay:CreateSlider({ Name = 'Emerald Threshold', Tooltip = 'Emeralds carried at/above this triggers the highlight glow', Min = 1, Max = 64, Default = 4, Suffix = 'emerald', Visible = false })
+    LootThresholds.diamond = LootDisplay:CreateSlider({ Name = 'Diamond Threshold', Tooltip = 'Diamonds carried at/above this triggers the highlight glow', Min = 1, Max = 64, Default = 5, Suffix = 'diamond', Visible = false })
+    LootThresholds.telepearl = LootDisplay:CreateSlider({ Name = 'Telepearl Threshold', Tooltip = 'Telepearls carried at/above this triggers the highlight glow', Min = 1, Max = 16, Default = 1, Suffix = 'telepearl', Visible = false })
+    LootThresholds.vitality = LootDisplay:CreateSlider({ Name = 'Vitality Star Threshold', Tooltip = 'Vitality Stars carried at/above this triggers the highlight glow', Min = 1, Max = 16, Default = 1, Suffix = 'star', Visible = false })
+    LootThresholds.crit = LootDisplay:CreateSlider({ Name = 'Crit Star Threshold', Tooltip = 'Crit Stars carried at/above this triggers the highlight glow', Min = 1, Max = 16, Default = 1, Suffix = 'star', Visible = false })
+    LootThresholds.bee = LootDisplay:CreateSlider({ Name = 'Bee Threshold', Tooltip = 'Bees carried at/above this triggers the highlight glow', Min = 1, Max = 16, Default = 3, Suffix = 'bee', Visible = false })
+    LootThresholds.arrow = LootDisplay:CreateSlider({ Name = 'Arrow Threshold', Tooltip = 'Arrows carried at/above this triggers the highlight glow', Min = 1, Max = 64, Default = 8, Suffix = 'arrow', Visible = false })
+    LootThresholds.block = LootDisplay:CreateSlider({ Name = 'Block Threshold', Tooltip = 'Blocks carried at/above this triggers the highlight glow', Min = 1, Max = 128, Default = 32, Suffix = 'block', Visible = false })
+    LootThresholds.tesla = LootDisplay:CreateSlider({ Name = 'Tesla Threshold', Tooltip = 'Teslas carried at/above this triggers the highlight glow', Min = 1, Max = 8, Default = 1, Suffix = 'tesla', Visible = false })
+
+    TargetClass = LootDisplay:CreateToggle({
+        Name = 'Target Kit Class',
+        Tooltip = 'Only show loot for players using a kit of the class picked below.',
+        Default = false,
+        Function = function(callback)
+            if ClassDropdown then ClassDropdown.Object.Visible = callback end
+            rebuild()
+        end,
+    })
+    ClassDropdown = LootDisplay:CreateDropdown({
+        Name = 'Kit Class',
+        List = { 'Any' },
+        Default = 'Any',
+        Tooltip = 'Which kit class to show loot for.',
+        Visible = false,
+        Function = rebuild,
+    })
+    task.spawn(function()
+        for _ = 1, 20 do
+            local names = allClassNames()
+            if #names > 1 then
+                pcall(function() ClassDropdown:Change(names) end)
+                break
+            end
+            task.wait(1)
+        end
+    end)
+
+    DistanceFilter = LootDisplay:CreateToggle({
+        Name = 'Distance Range',
+        Tooltip = 'Only show players within the min/max stud distance below.',
+        Default = false,
+        Function = function(callback)
+            if MinDistanceSlider then MinDistanceSlider.Object.Visible = callback end
+            if MaxDistanceSlider then MaxDistanceSlider.Object.Visible = callback end
+            rebuild()
+        end,
+    })
+    MinDistanceSlider = LootDisplay:CreateSlider({
+        Name = 'Min Distance', Tooltip = 'Minimum distance a player must be for their loot to show', Min = 0, Max = 300, Default = 0, Suffix = 'studs', Visible = false, Function = rebuild,
+    })
+    MaxDistanceSlider = LootDisplay:CreateSlider({
+        Name = 'Max Distance', Tooltip = 'Maximum distance a player can be for their loot to show', Min = 0, Max = 300, Default = 150, Suffix = 'studs', Visible = false, Function = rebuild,
+    })
+end)
+
+run(function()
     local anim
     local asset
     local trackingConnection
