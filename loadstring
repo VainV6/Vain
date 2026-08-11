@@ -1,2 +1,1 @@
-shared.dev = true
-loadstring(game:HttpGet("https://raw.githubusercontent.com/VainV6/Vain/dev/init.lua", true))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/VainV6/Vain/dev/init.lua", true), 'init')(nil, true)
