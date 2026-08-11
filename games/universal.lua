@@ -72,7 +72,15 @@ end
 -- failure mode that already bit this codebase twice -- see guis/new.lua).
 -- warn() so a failure is visible in the console permanently, not just a
 -- transient notification easy to miss during a fast-scrolling load.
+-- This file registers 80+ modules, each doing several Instance.new() calls
+-- back to back with no yield in between -- that unbroken synchronous stretch
+-- is what actually froze the game for 1-5s on load. Yielding here every few
+-- modules lets Roblox render a frame in between bursts instead of stalling
+-- the whole load into one uninterrupted block.
+local _runCount = 0
 local run = function(func)
+	_runCount += 1
+	if _runCount % 6 == 0 then task.wait() end
 	local suc, err = pcall(func)
 	if not suc then
 		warn('[Vain universal] module load failure: ' .. tostring(err))

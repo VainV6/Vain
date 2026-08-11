@@ -4,7 +4,16 @@
 if shared.VainBedwarsLoaded then return end
 shared.VainBedwarsLoaded = true
 local canDebug = true
+-- This file registers 200+ modules, each doing several Instance.new() calls
+-- back to back with no yield in between -- that unbroken synchronous stretch
+-- is what actually froze the game for 1-5s on load. Yielding here every few
+-- modules lets Roblox render a frame in between bursts instead of stalling
+-- the whole load into one uninterrupted block; total added wait time across
+-- the whole file is a handful of frames, not seconds.
+local _runCount = 0
 local run = function(func)
+	_runCount += 1
+	if _runCount % 6 == 0 then task.wait() end
 	local suc, err = pcall(func)
 	if not suc then
 		-- warn() prints to the console permanently (unlike the notification below,
