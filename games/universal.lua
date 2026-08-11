@@ -10046,10 +10046,12 @@ run(function()
     })
     List = SongBeats:CreateTextList({
     	Name = 'Songs',
+    	Tooltip = 'Songs to play, formatted as filepath/bpm/start',
     	Placeholder = 'filepath/bpm/start',
     })
     FOV = SongBeats:CreateToggle({
     	Name = 'Beat FOV',
+    	Tooltip = 'Pulses the camera FOV in sync with the beat',
     	Function = function(callback)
     		if FOVValue.Object then
     			FOVValue.Object.Visible = callback
@@ -10063,6 +10065,7 @@ run(function()
     })
     FOVValue = SongBeats:CreateSlider({
     	Name = 'Adjustment',
+    	Tooltip = 'How much the FOV pulses on each beat',
     	Min = 1,
     	Max = 30,
     	Default = 5,
@@ -10070,6 +10073,7 @@ run(function()
     })
     Volume = SongBeats:CreateSlider({
     	Name = 'Volume',
+    	Tooltip = 'Playback volume of the song',
     	Function = function(val)
     		if songobj then
     			songobj.Volume = val / 100
@@ -10108,6 +10112,7 @@ run(function()
     })
     Speedmeter:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the speedmeter text',
     	Blacklist = 'Gotham',
     	Function = function(val)
     		label.FontFace = val
@@ -10115,6 +10120,7 @@ run(function()
     })
     Speedmeter:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the speedmeter',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -10156,6 +10162,7 @@ run(function()
     })
     Value = TimeChanger:CreateSlider({
     	Name = 'Time',
+    	Tooltip = 'Hour of the day to set (24-hour format)',
     	Min = 0,
     	Max = 24,
     	Default = 12,
@@ -10231,9 +10238,9 @@ run(function()
             end
         end,
     })
-    WeatherSpread = GameWeather:CreateSlider({ Name = 'Spread', Min = 1,  Max = 100, Default = 60,  Function = function(val) WeatherSpread.Value = val end })
-    WeatherRate   = GameWeather:CreateSlider({ Name = 'Rate',   Min = 1,  Max = 100, Default = 80,  Function = function(val) WeatherRate.Value   = val end })
-    WeatherHigh   = GameWeather:CreateSlider({ Name = 'Height', Min = 1,  Max = 200, Default = 120, Function = function(val) WeatherHigh.Value   = val end })
+    WeatherSpread = GameWeather:CreateSlider({ Name = 'Spread', Tooltip = 'How much the snow particles spread outward', Min = 1,  Max = 100, Default = 60,  Function = function(val) WeatherSpread.Value = val end })
+    WeatherRate   = GameWeather:CreateSlider({ Name = 'Rate',   Tooltip = 'Number of snow particles emitted per second', Min = 1,  Max = 100, Default = 80,  Function = function(val) WeatherRate.Value   = val end })
+    WeatherHigh   = GameWeather:CreateSlider({ Name = 'Height', Tooltip = 'Height above your character the snow spawns at', Min = 1,  Max = 200, Default = 120, Function = function(val) WeatherHigh.Value   = val end })
 end)
 
 -- ── AestheticLighting ────────────────────────────────────────────────────────
