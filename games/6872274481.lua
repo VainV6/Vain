@@ -3607,6 +3607,7 @@ run(function()
         local SwordCPS = {}
         local PlaceBlocksToggle
         local SwingSwordToggle
+        local UniversalClickToggle
         local Thread
 
         local task_wait = task.wait
@@ -3643,6 +3644,8 @@ run(function()
                             end
                         elseif SwingSwordToggle.Enabled and toolType == 'sword' then
                             bedwars.SwordController:swingSwordAtMouse(0.39)
+                        elseif UniversalClickToggle.Enabled then
+                            leftClick()
                         end
                     end
 
@@ -3732,6 +3735,12 @@ run(function()
             DefaultMin = 7,
             DefaultMax = 7,
             Darker = true
+        })
+
+        UniversalClickToggle = AutoClicker:CreateToggle({
+            Name = 'Universal Click',
+            Tooltip = 'Fires a real left-click while holding neither a placeable block nor a sword -- useful for GUIs, chests, or anything else that just needs clicking',
+            Default = false
         })
 
         task.defer(function()
