@@ -12323,6 +12323,7 @@ run(function()
 
     FontOption = NameTags:CreateFont({
         Name = 'Font',
+        Tooltip = 'Font used for the nametag text',
         Blacklist = 'Arial',
         Function = function()
             if NameTags.Enabled then
@@ -12334,6 +12335,7 @@ run(function()
 
     Color = NameTags:CreateColorSlider({
         Name = 'Player Color',
+        Tooltip = 'Color of the nametag text',
         Function = function(hue, sat, val)
             if NameTags.Enabled and ColorFunc[methodused] then
                 ColorFunc[methodused](hue, sat, val)
@@ -12343,6 +12345,7 @@ run(function()
 
     Scale = NameTags:CreateSlider({
         Name = 'Scale',
+        Tooltip = 'Size of the nametag text',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12357,6 +12360,7 @@ run(function()
 
     Background = NameTags:CreateSlider({
         Name = 'Transparency',
+        Tooltip = 'Transparency of the nametag background plate',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12371,6 +12375,7 @@ run(function()
 
     Health = NameTags:CreateToggle({
         Name = 'Health',
+        Tooltip = 'Shows current health next to the name',
         Function = function(callback)
             HealthColorToggle.Object.Visible = callback
             HealthColorFull.Object.Visible = callback and HealthColorToggle.Enabled
@@ -12401,6 +12406,7 @@ run(function()
 
     HealthColorFull = NameTags:CreateColorSlider({
         Name = 'Full HP Color',
+        Tooltip = 'Color shown at full health',
         Darker = true,
         Visible = false,
         DefaultHue = 0.4,
@@ -12416,6 +12422,7 @@ run(function()
 
     HealthColorMid = NameTags:CreateColorSlider({
         Name = 'Mid HP Color',
+        Tooltip = 'Color shown at half health',
         Darker = true,
         Visible = false,
         DefaultHue = 0.15,
@@ -12431,6 +12438,7 @@ run(function()
 
     HealthColorLow = NameTags:CreateColorSlider({
         Name = 'Low HP Color',
+        Tooltip = 'Color shown at low health',
         Darker = true,
         Visible = false,
         DefaultHue = 0,
@@ -12446,6 +12454,7 @@ run(function()
 
     Distance = NameTags:CreateToggle({
         Name = 'Distance',
+        Tooltip = 'Shows distance in studs next to the name',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12456,6 +12465,7 @@ run(function()
 
     Equipment = NameTags:CreateToggle({
         Name = 'Equipment',
+        Tooltip = 'Shows equipped hand item and armor icons on the nametag',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12534,6 +12544,7 @@ run(function()
 
     DisplayName = NameTags:CreateToggle({
         Name = 'Use Displayname',
+        Tooltip = 'Shows the player\'s display name instead of their @username',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12545,6 +12556,7 @@ run(function()
 
     Teammates = NameTags:CreateToggle({
         Name = 'Priority Only',
+        Tooltip = 'Only shows nametags on enemies and friends, hiding everyone else',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12556,6 +12568,7 @@ run(function()
 
     DrawingToggle = NameTags:CreateToggle({
         Name = 'Drawing',
+        Tooltip = 'Renders nametags with the Drawing library instead of Roblox UI (lighter weight, no icons)',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
@@ -12577,6 +12590,7 @@ run(function()
 
     DistanceCheck = NameTags:CreateToggle({
         Name = 'Distance Check',
+        Tooltip = 'Only shows nametags within the distance range below',
         Function = function(callback)
             DistanceLimit.Object.Visible = callback
         end
