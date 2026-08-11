@@ -6168,6 +6168,75 @@ do
 				end)
 			end
 		end
+
+		-- Export/Import: share a profile as a clipboard string. Export wraps the
+		-- current profile's own saved settings file in {Name=..., Data=...} (the
+		-- same shape mainapi:ApplyPreset already expects) and copies it. Import
+		-- reads that same shape back off the clipboard and hands it straight to
+		-- ApplyPreset, which writes it as a new local profile and switches to it.
+		local exportBtn = Instance.new('TextButton')
+		exportBtn.Size = UDim2.fromOffset(200, 28)
+		exportBtn.LayoutOrder = order
+		order = order + 1
+		exportBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.07)
+		exportBtn.AutoButtonColor = false
+		exportBtn.Text = 'Export current profile'
+		exportBtn.TextColor3 = color.Dark(uipallet.Text, 0.08)
+		exportBtn.TextSize = 12
+		exportBtn.FontFace = uipallet.FontSemiBold
+		exportBtn.Parent = parent
+		addCorner(exportBtn)
+		if addTooltip then addTooltip(exportBtn, 'Copies your current profile to the clipboard so you can share it') end
+		local exportStroke = Instance.new('UIStroke')
+		exportStroke.Color = color.Light(uipallet.Main, 0.14)
+		exportStroke.Parent = exportBtn
+		exportBtn.MouseButton1Click:Connect(function()
+			local ok = pcall(function()
+				local path = 'vain/profiles/'..mainapi.Profile..mainapi.Place..'.txt'
+				if not isfile(path) then error('no saved profile file yet') end
+				local data = readfile(path)
+				setclipboard(httpService:JSONEncode({Name = mainapi.Profile, Data = data}))
+			end)
+			if mainapi.CreateNotification then
+				mainapi:CreateNotification('Profiles', ok and 'Profile copied to clipboard' or 'Failed to export profile', 4, not ok and 'alert' or nil)
+			end
+		end)
+		exportBtn.MouseEnter:Connect(function() tween:Tween(exportBtn, uipallet.Tween, { TextColor3 = uipallet.Text }) end)
+		exportBtn.MouseLeave:Connect(function() tween:Tween(exportBtn, uipallet.Tween, { TextColor3 = color.Dark(uipallet.Text, 0.08) }) end)
+
+		local importBtn = Instance.new('TextButton')
+		importBtn.Size = UDim2.fromOffset(200, 28)
+		importBtn.LayoutOrder = order
+		order = order + 1
+		importBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.07)
+		importBtn.AutoButtonColor = false
+		importBtn.Text = 'Import profile from clipboard'
+		importBtn.TextColor3 = color.Dark(uipallet.Text, 0.08)
+		importBtn.TextSize = 12
+		importBtn.FontFace = uipallet.FontSemiBold
+		importBtn.Parent = parent
+		addCorner(importBtn)
+		if addTooltip then addTooltip(importBtn, 'Paste a profile string (copied via Export) into your clipboard first, then click this to import it') end
+		local importStroke = Instance.new('UIStroke')
+		importStroke.Color = color.Light(uipallet.Main, 0.14)
+		importStroke.Parent = importBtn
+		importBtn.MouseButton1Click:Connect(function()
+			local ok = pcall(function()
+				if not getclipboard then error('executor has no getclipboard') end
+				local decoded = httpService:JSONDecode(getclipboard())
+				if type(decoded) ~= 'table' or not decoded.Name or not decoded.Data then
+					error('clipboard does not contain a valid profile')
+				end
+				if not mainapi:ApplyPreset(decoded) then
+					error('failed to apply profile')
+				end
+			end)
+			if not ok and mainapi.CreateNotification then
+				mainapi:CreateNotification('Profiles', 'Could not import profile from clipboard', 5, 'alert')
+			end
+		end)
+		importBtn.MouseEnter:Connect(function() tween:Tween(importBtn, uipallet.Tween, { TextColor3 = uipallet.Text }) end)
+		importBtn.MouseLeave:Connect(function() tween:Tween(importBtn, uipallet.Tween, { TextColor3 = color.Dark(uipallet.Text, 0.08) }) end)
 	end
 end
 
