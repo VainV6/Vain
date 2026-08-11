@@ -4565,6 +4565,7 @@ run(function()
     })
     SearchRange = TargetStrafe:CreateSlider({
     	Name = 'Search Range',
+    	Tooltip = 'Maximum distance to search for a target to strafe around',
     	Min = 1,
     	Max = 30,
     	Default = 24,
@@ -4574,6 +4575,7 @@ run(function()
     })
     StrafeRange = TargetStrafe:CreateSlider({
     	Name = 'Strafe Range',
+    	Tooltip = 'Distance kept from the target while strafing',
     	Min = 1,
     	Max = 30,
     	Default = 18,
@@ -4583,6 +4585,7 @@ run(function()
     })
     YFactor = TargetStrafe:CreateSlider({
     	Name = 'Y Factor',
+    	Tooltip = 'How much height differences affect the strafe distance',
     	Min = 0,
     	Max = 100,
     	Default = 100,
@@ -4636,6 +4639,7 @@ run(function()
     })
     Range = PlayerAttach:CreateSlider({
     	Name = 'Range',
+    	Tooltip = 'Maximum distance to search for a target to attach to',
     	Min = 1,
     	Max = 50,
     	Default = 24,
@@ -4668,6 +4672,7 @@ run(function()
     })
     Value = Timer:CreateSlider({
     	Name = 'Value',
+    	Tooltip = 'Multiplier applied to the game speed',
     	Min = 1,
     	Max = 3,
     	Decimal = 10,
@@ -4798,6 +4803,7 @@ run(function()
     })
     Color = Arrows:CreateColorSlider({
     	Name = 'Player Color',
+    	Tooltip = 'Fallback arrow color when a team color is unavailable',
     	Function = function(hue, sat, val)
     		if Arrows.Enabled then
     			ColorFunc(hue, sat, val)
@@ -4817,6 +4823,7 @@ run(function()
     })
     Distance = Arrows:CreateToggle({
     	Name = 'Distance Check',
+    	Tooltip = 'Only shows arrows for entities within the distance range below',
     	Function = function(callback)
     		DistanceLimit.Object.Visible = callback
     	end,
@@ -4971,6 +4978,7 @@ run(function()
     })
     Mode = Chams:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Rendering method used for chams',
     	List = { 'Highlight', 'BoxHandles' },
     	Function = function(val)
     		OutlineColor.Object.Visible = val == 'Highlight'
@@ -4983,6 +4991,7 @@ run(function()
     })
     FillColor = Chams:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Fallback fill color when a team color is unavailable',
     	Function = function(hue, sat, val)
     		for i, v in Reference do
     			local color = entitylib.getEntityColor(i) or Color3.fromHSV(hue, sat, val)
@@ -4998,6 +5007,7 @@ run(function()
     })
     OutlineColor = Chams:CreateColorSlider({
     	Name = 'Outline Color',
+    	Tooltip = 'Color of the chams outline (Highlight mode only)',
     	DefaultSat = 0,
     	Function = function(hue, sat, val)
     		for i, v in Reference do
@@ -5010,6 +5020,7 @@ run(function()
     })
     FillTransparency = Chams:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the chams fill',
     	Min = 0,
     	Max = 1,
     	Default = 0.5,
@@ -5028,6 +5039,7 @@ run(function()
     })
     OutlineTransparency = Chams:CreateSlider({
     	Name = 'Outline Transparency',
+    	Tooltip = 'Transparency of the chams outline (Highlight mode only)',
     	Min = 0,
     	Max = 1,
     	Default = 0.5,
@@ -5043,6 +5055,7 @@ run(function()
     })
     Walls = Chams:CreateToggle({
     	Name = 'Render Walls',
+    	Tooltip = 'Renders chams through walls',
     	Function = function(callback)
     		for _, v in Reference do
     			if type(v) == 'table' then
