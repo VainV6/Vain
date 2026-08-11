@@ -145,7 +145,7 @@ run(function()
 	local InfiniteStamina
 	
 	InfiniteStamina = vain.Categories.Blatant:CreateModule({
-		Name = 'InfiniteStamina',
+		Name = 'Infinite Stamina',
 		Function = function(callback)
 			if callback then 
 				repeat
@@ -439,7 +439,7 @@ run(function()
 	local connections = {}
 	
 	NoFall = vain.Categories.Blatant:CreateModule({
-		Name = 'NoFall',
+		Name = 'No Fall',
 		Function = function(callback)
 			if callback then
 				NoFall:Clean(entitylib.Events.LocalAdded:Connect(function(ent)
@@ -553,7 +553,7 @@ run(function()
 	end
 	
 	AutoEat = vain.Categories.Utility:CreateModule({
-		Name = 'AutoEat',
+		Name = 'Auto Eat',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -581,7 +581,7 @@ run(function()
 	local pickupdelay = {}
 	
 	AutoPickup = vain.Categories.Utility:CreateModule({
-		Name = 'AutoPickup',
+		Name = 'Auto Pickup',
 		Function = function(callback)
 			if callback then 
 				AutoPickup:Clean(dropped.ChildAdded:Connect(function(v) 

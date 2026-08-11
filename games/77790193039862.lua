@@ -981,7 +981,7 @@ run(function()
     local old
     
     FastBreak = vain.Categories.World:CreateModule({
-        Name = 'FastBreak',
+        Name = 'Fast Break',
         Function = function(callback)
             if callback then
                 old = hookfunction(arena.Client.showMiningProgress, function(progress)
@@ -1013,7 +1013,7 @@ run(function()
     local old
     
     FastPlace = vain.Categories.World:CreateModule({
-        Name = 'FastPlace',
+        Name = 'Fast Place',
         Function = function(callback)
             if callback then
                 old = debug.getupvalue(arena.Client.startPlaceHold, 7)

@@ -93,7 +93,7 @@ run(function()
 	end)
 end)
 
-for _, v in {'Reach', 'SilentAim', 'Disabler', 'HitBoxes', 'MurderMystery', 'AutoRejoin'} do
+for _, v in {'Reach', 'Silent Aim', 'Disabler', 'Hit Boxes', 'Murder Mystery', 'Auto Rejoin'} do
 	vain:Remove(v)
 end
 run(function()
@@ -101,7 +101,7 @@ run(function()
 	local CPS
 	
 	AutoClicker = vain.Categories.Combat:CreateModule({
-		Name = 'AutoClicker',
+		Name = 'Auto Clicker',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -554,7 +554,7 @@ run(function()
 	local old
 	
 	vain.Categories.Blatant:CreateModule({
-		Name = 'NoFall',
+		Name = 'No Fall',
 		Function = function(callback)
 			if callback then 
 				old = hookfunction(bd.Blink.player_state.take_fall_damage.fire, function() end)
@@ -571,7 +571,7 @@ run(function()
 	local old
 	
 	vain.Categories.Blatant:CreateModule({
-		Name = 'NoSlowdown',
+		Name = 'No Slowdown',
 		Function = function(callback)
 			local func = debug.getproto(bd.MovementController.KnitStart, 5)
 			if callback then
@@ -595,7 +595,7 @@ run(function()
 	local Delay
 	
 	AutoPlay = vain.Categories.Utility:CreateModule({
-		Name = 'AutoPlay',
+		Name = 'Auto Play',
 		Function = function(callback)
 			if callback then
 				AutoPlay:Clean(bd.Blink.game_state.team_won.on(function()

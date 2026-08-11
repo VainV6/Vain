@@ -118,7 +118,7 @@ run(function()
     local CPS
 
     AutoClicker = vain.Categories.Combat:CreateModule({
-    	Name = 'AutoClicker',
+    	Name = 'Auto Clicker',
     	Function = function(callback)
     		if callback then
     			repeat
@@ -265,7 +265,7 @@ run(function()
     local old
 
     vain.Categories.Blatant:CreateModule({
-    	Name = 'InvMove',
+    	Name = 'Inv Move',
     	Function = function(callback)
     		if callback then
     			old = hookfunction(bd.MovementController.AddSpeedOverride, function(...)
@@ -640,7 +640,7 @@ run(function()
     local old
 
     vain.Categories.Blatant:CreateModule({
-    	Name = 'NoFall',
+    	Name = 'No Fall',
     	Function = function(callback)
     		if callback then
     			old = hookfunction(bd.Blink.player_state.take_fall_damage.fire, function() end)
@@ -657,7 +657,7 @@ run(function()
     local old
 
     vain.Categories.Blatant:CreateModule({
-    	Name = 'NoSlowdown',
+    	Name = 'No Slowdown',
     	Function = function(callback)
     		local func = debug.getproto(bd.MovementController.KnitStart, 5)
     		if callback then
@@ -716,7 +716,7 @@ run(function()
     end
 
     local ProjectileAimbot = vain.Categories.Blatant:CreateModule({
-    	Name = 'ProjectileAimbot',
+    	Name = 'Projectile Aimbot',
     	Function = function(callback)
     		if callback then
     			old = hookfunction(debug.getupvalue(bd.BowClient.Start, 11), function(...)
@@ -750,7 +750,7 @@ run(function()
     local Delay
 
     AutoPlay = vain.Categories.Utility:CreateModule({
-    	Name = 'AutoPlay',
+    	Name = 'Auto Play',
     	Function = function(callback)
     		if callback then
     			AutoPlay:Clean(bd.Blink.game_state.team_won.on(function()
@@ -1001,7 +1001,7 @@ run(function()
     end
 
     local function buyItem(item, itemTier, itemCategory, currencytable)
-    	notif('AutoBuy', 'Bought ' .. item.name, 3)
+    	notif('Auto Buy', 'Bought ' .. item.name, 3)
     	task.spawn(function()
     		bd.Blink.player_state.bedwars_buy_item.invoke({
     			item = itemCategory or item.name,
@@ -1036,7 +1036,7 @@ run(function()
     		local tier = upgradeItem.tiers[i]
 
     		if canBuy({ currency = 'Diamond', cost = tier.cost }, currencytable) then
-    			notif('AutoBuy', 'Bought ' .. upgrade .. ' ' .. i, 3)
+    			notif('Auto Buy', 'Bought ' .. upgrade .. ' ' .. i, 3)
     			task.spawn(function()
     				bd.Blink.player_state.bedwars_buy_upgrade.invoke(upgrade)
     			end)
@@ -1066,7 +1066,7 @@ run(function()
     end
 
     AutoBuy = vain.Categories.Inventory:CreateModule({
-    	Name = 'AutoBuy',
+    	Name = 'Auto Buy',
     	Function = function(callback)
     		if callback then
     			AutoBuy:Clean(collectionService:GetInstanceAddedSignal('menu_opener'):Connect(function(obj)

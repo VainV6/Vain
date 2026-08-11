@@ -148,7 +148,7 @@ local function notif(...)
 end
 
 -- universal.lua loads BEFORE this file and creates a generic 'Silent Aim'
--- module that duplicates the richer Jailbreak-specific 'SilentAim' (no space)
+-- module that duplicates the richer Jailbreak-specific 'Silent Aim' (no space)
 -- defined below. Since this file loads second, vain.Modules already holds the
 -- universal copy -- remove it so only the Jailbreak version remains.
 run(function()
@@ -513,7 +513,7 @@ run(function()
 	ProjectileRaycast.RespectCanCollide = true
 
 	SilentAim = vain.Categories.Combat:CreateModule({
-		Name = 'SilentAim',
+		Name = 'Silent Aim',
 		Function = function(callback)
 			if CircleObject then
 				CircleObject.Visible = callback and Mode.Value == 'Mouse'
@@ -1107,7 +1107,7 @@ run(function()
 	local originals = {} -- [Config] = {Field = originalValue}
 
 	NoSpread = vain.Categories.Combat:CreateModule({
-		Name = 'NoSpread',
+		Name = 'No Spread',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -1275,7 +1275,7 @@ run(function()
 	end
 
 	BountyESP = vain.Categories.Render:CreateModule({
-		Name = 'BountyESP',
+		Name = 'Bounty ESP',
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
@@ -1383,7 +1383,7 @@ run(function()
 	end
 
 	AutoArrest = vain.Categories.Blatant:CreateModule({
-		Name = 'AutoArrest',
+		Name = 'Auto Arrest',
 		Function = function(callback)
 			if callback then
 				-- The game's ShouldArrest test (decoded from u756/u803): target is a
@@ -1493,7 +1493,7 @@ run(function()
 	end
 	
 	AutoPop = vain.Categories.Blatant:CreateModule({
-		Name = 'AutoPop',
+		Name = 'Auto Pop',
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
@@ -1544,7 +1544,7 @@ run(function()
 	end
 
 	AutoRob = vain.Categories.Blatant:CreateModule({
-		Name = 'AutoRob',
+		Name = 'Auto Rob',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -1578,7 +1578,7 @@ run(function()
 	local Punch = {Enabled = false}
 	
 	Punch = vain.Categories.Blatant:CreateModule({
-		Name = 'AutoPunch',
+		Name = 'Auto Punch',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -1604,7 +1604,7 @@ run(function()
 	-- which comes from TransformLocalMousePosition; we hook that to point at the
 	-- nearest criminal so :Tase() locks onto them. No alias to maintain.
 	AutoTaze = vain.Categories.Blatant:CreateModule({
-		Name = 'AutoTaze',
+		Name = 'Auto Taze',
 		Function = function(callback)
 			if callback then
 					-- We redirect the taser's aim by SHADOWING TransformLocalMousePosition on
@@ -1649,7 +1649,7 @@ run(function()
 end)
 	
 run(function()
-	LazerGodmode = vain.Categories.Blatant:CreateModule({Name = 'LazerGodmode'})
+	LazerGodmode = vain.Categories.Blatant:CreateModule({Name = 'Lazer Godmode'})
 end)
 	
 run(function()
@@ -1703,7 +1703,7 @@ run(function()
 	local usingConstant = false -- remember which method we enabled with
 
 	NoFall = vain.Categories.Blatant:CreateModule({
-		Name = 'NoFall',
+		Name = 'No Fall',
 		Function = function(callback)
 			if callback then
 				-- Preferred: flip the fall handler's 'Sit' constant so it no-ops.
@@ -1752,11 +1752,11 @@ run(function()
 	local oldnitro
 
 	InfiniteNitro = vain.Categories.Utility:CreateModule({
-		Name = 'InfiniteNitro',
+		Name = 'Infinite Nitro',
 		Function = function(callback)
 			if type(nitrotable) ~= 'table' then
 				if callback then
-					notif('InfiniteNitro', 'Could not find the nitro table (game updated?). Disabling.', 6, 'alert')
+					notif('Infinite Nitro', 'Could not find the nitro table (game updated?). Disabling.', 6, 'alert')
 					InfiniteNitro:Toggle()
 				end
 				return
@@ -2194,11 +2194,11 @@ run(function()
 	local jp = jb.JetPackController
 
 	InfiniteJetpack = vain.Categories.Utility:CreateModule({
-		Name = 'InfiniteJetpack',
+		Name = 'Infinite Jetpack',
 		Function = function(callback)
 			if type(jp) ~= 'table' or type(jp.LocalFuel) ~= 'number' then
 				if callback then
-					notif('InfiniteJetpack', 'Could not find the jetpack fuel (game updated?). Disabling.', 6, 'alert')
+					notif('Infinite Jetpack', 'Could not find the jetpack fuel (game updated?). Disabling.', 6, 'alert')
 					InfiniteJetpack:Toggle()
 				end
 				return
@@ -2217,12 +2217,12 @@ end)
 run(function()
 	local InstantAction
 	InstantAction = vain.Categories.Utility:CreateModule({
-		Name = 'InstantAction',
+		Name = 'Instant Action',
 		Function = function(callback)
 			-- Constant index 3 of CircleAction.Press drifts on updates; guard it.
 			local ok = pcall(debug.setconstant, jb.CircleAction.Press, 3, callback and 'Timeda' or 'Timed')
 			if not ok and callback then
-				notif('InstantAction', 'Patch point not found (game updated?). Disabling.', 6, 'alert')
+				notif('Instant Action', 'Patch point not found (game updated?). Disabling.', 6, 'alert')
 				InstantAction:Toggle()
 			end
 		end,
@@ -2233,14 +2233,14 @@ end)
 run(function()
 	local KeySpoofer
 	KeySpoofer = vain.Categories.Utility:CreateModule({
-		Name = 'KeySpoofer',
+		Name = 'Key Spoofer',
 		Function = function(callback)
 			if callback then
 				local ok = pcall(hookfunction, jb.PlayerUtils.hasKey, function()
 					return true
 				end)
 				if not ok then
-					notif('KeySpoofer', 'Could not hook hasKey (game updated?). Disabling.', 6, 'alert')
+					notif('Key Spoofer', 'Could not hook hasKey (game updated?). Disabling.', 6, 'alert')
 					KeySpoofer:Toggle()
 				end
 			else

@@ -658,7 +658,7 @@ run(function()
 	end
 
 	KillAura = vain.Categories.Combat:CreateModule({
-		Name = 'KillAura',
+		Name = 'Kill Aura',
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
@@ -805,7 +805,7 @@ run(function()
 	end
 
 	AutoFarm = vain.Categories.Combat:CreateModule({
-		Name = 'AutoFarm',
+		Name = 'Auto Farm',
 		Function = function(callback)
 			if callback then
 				local home = aliveLocal() and entitylib.character.RootPart.CFrame or nil
@@ -2138,7 +2138,7 @@ end)
 
 -- ── Remove universal modules that don't apply to this RPG ──────────────────────
 run(function()
-	for _, name in {'Reach', 'TriggerBot', 'HitBoxes', 'Killaura', 'MurderMystery', 'AntiFall'} do
+	for _, name in {'Reach', 'Trigger Bot', 'Hit Boxes', 'Killaura', 'Murder Mystery', 'Anti Fall'} do
 		if vain.Modules[name] then
 			vain:Remove(name)
 		end

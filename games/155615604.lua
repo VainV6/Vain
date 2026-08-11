@@ -734,7 +734,7 @@ run(function()
     end
     
     AntiInvisible = vain.Categories.Blatant:CreateModule({
-        Name = 'AntiInvisible',
+        Name = 'Anti Invisible',
         Function = function(callback)
             if callback then
                 AntiInvisible:Clean(entitylib.Events.EntityAdded:Connect(EntityAdded))
@@ -2349,10 +2349,10 @@ run(function()
     local sounds = {}
     
     HitSound = vain.Legit:CreateModule({
-        Name = 'HitSound',
+        Name = 'Hit Sound',
         Function = function(callback)
             if callback then
-                TracerHook:Add('HitSound', function(...)
+                TracerHook:Add('Hit Sound', function(...)
                     local part = debug.getstack(4, 17)
                     if typeof(part) == 'Instance' then
                         for _, v in entitylib.List do
@@ -2372,7 +2372,7 @@ run(function()
                     end
                 end)
             else
-                TracerHook:Remove('HitSound')
+                TracerHook:Remove('Hit Sound')
             end
         end,
         Tooltip = 'Custom hit sound'

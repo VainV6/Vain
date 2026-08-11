@@ -401,7 +401,7 @@ run(function()
 	end)
 end)
 
-for _, v in {'Reach', 'TriggerBot', 'Disabler', 'SilentAim', 'AutoRejoin', 'Rejoin', 'ServerHop', 'MurderMystery'} do
+for _, v in {'Reach', 'Trigger Bot', 'Disabler', 'Silent Aim', 'Auto Rejoin', 'Rejoin', 'Server Hop', 'Murder Mystery'} do
 	vain:Remove(v)
 end
 run(function()
@@ -434,7 +434,7 @@ run(function()
 	end
 	
 	AutoClicker = vain.Categories.Combat:CreateModule({
-		Name = 'AutoClicker',
+		Name = 'Auto Clicker',
 		Function = function(callback)
 			if callback then
 				AutoClicker:Clean(inputService.InputBegan:Connect(function(input, gameProcessed)
@@ -598,7 +598,7 @@ run(function()
 	end
 	
 	AntiFall = vain.Categories.Blatant:CreateModule({
-		Name = 'AntiFall',
+		Name = 'Anti Fall',
 		Function = function(callback)
 			if callback then
 				local pos, debounce = getLowGround(), tick()
@@ -671,7 +671,7 @@ run(function()
 	local old
 	
 	InvMove = vain.Categories.Blatant:CreateModule({
-		Name = 'InvMove',
+		Name = 'Inv Move',
 		Function = function(callback)
 			if callback then
 				old = skywars.ScreenController.enableFocus
@@ -1035,7 +1035,7 @@ run(function()
 	local rayCheck = RaycastParams.new()
 	
 	NoFall = vain.Categories.Blatant:CreateModule({
-		Name = 'NoFall',
+		Name = 'No Fall',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -1065,7 +1065,7 @@ run(function()
 	local old, old2
 	
 	vain.Categories.Blatant:CreateModule({
-		Name = 'NoSlowdown',
+		Name = 'No Slowdown',
 		Function = function(callback)
 			if callback then
 				old = skywars.HumanoidController.addSpeedModifier
@@ -1130,7 +1130,7 @@ run(function()
 	end
 	
 	local ProjectileAimbot = vain.Categories.Blatant:CreateModule({
-		Name = 'ProjectileAimbot',
+		Name = 'Projectile Aimbot',
 		Function = function(callback)
 			if callback then 
 				old = hookfunction(skywars.CameraUtil.getCursorDirection, function(...)
@@ -1181,7 +1181,7 @@ run(function()
 	end
 	
 	ProjectileAura = vain.Categories.Blatant:CreateModule({
-		Name = 'ProjectileAura',
+		Name = 'Projectile Aura',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -1387,7 +1387,7 @@ run(function()
 	local Delay = {}
 	
 	ChestSteal = vain.Categories.World:CreateModule({
-		Name = 'ChestSteal',
+		Name = 'Chest Steal',
 		Function = function(callback)
 			if callback then
 				local chests = collection('block:chest', ChestSteal)
@@ -1473,7 +1473,7 @@ run(function()
 	end
 	
 	AutoBuy = vain.Categories.Inventory:CreateModule({
-		Name = 'AutoBuy',
+		Name = 'Auto Buy',
 		Function = function(callback)
 			if callback then
 				AutoBuy:Clean(vainEvents.CurrencyChange.Event:Connect(buyCheck))
@@ -1551,7 +1551,7 @@ run(function()
 	end
 	
 	AutoConsume = vain.Categories.Inventory:CreateModule({
-		Name = 'AutoConsume',
+		Name = 'Auto Consume',
 		Function = function(callback)
 			if callback then
 				AutoConsume:Clean(vainEvents.InventoryAmountChanged.Event:Connect(consumeCheck))

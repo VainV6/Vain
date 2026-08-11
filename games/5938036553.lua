@@ -364,7 +364,7 @@ run(function()
 end)
 entitylib.start()
 
-for i, v in {'Reach', 'Health', 'TriggerBot', 'AntiFall', 'AntiRagdoll', 'Invisible', 'Disabler', 'Freecam', 'Parkour', 'HitBoxes', 'SafeWalk', 'Spider', 'Swim', 'GamingChair', 'TargetStrafe', 'Timer', 'MurderMystery', 'Blink', 'AnimationPlayer'} do
+for i, v in {'Reach', 'Health', 'Trigger Bot', 'Anti Fall', 'Anti Ragdoll', 'Invisible', 'Disabler', 'Freecam', 'Parkour', 'Hit Boxes', 'Safe Walk', 'Spider', 'Swim', 'Gaming Chair', 'Target Strafe', 'Timer', 'Murder Mystery', 'Blink', 'Animation Player'} do
 	vain:Remove(v)
 end
 
@@ -380,7 +380,7 @@ run(function()
 	rayCheck.RespectCanCollide = true
 	
 	AimAssist = vain.Categories.Combat:CreateModule({
-		Name = 'AimAssist',
+		Name = 'Aim Assist',
 		Function = function(callback)
 			if CircleObject then
 				CircleObject.Visible = callback
@@ -538,7 +538,7 @@ run(function()
 	end
 	
 	SilentAim = vain.Categories.Combat:CreateModule({
-		Name = 'SilentAim',
+		Name = 'Silent Aim',
 		Function = function(callback)
 			if CircleObject then
 				CircleObject.Visible = callback and Mode.Value == 'Mouse'
@@ -724,7 +724,7 @@ run(function()
 	local Range
 	
 	GrenadeTP = vain.Categories.Blatant:CreateModule({
-		Name = 'GrenadeTP',
+		Name = 'Grenade TP',
 		Function = function(callback)
 			if callback then 
 				repeat
@@ -774,7 +774,7 @@ run(function()
 	local Automatic
 	
 	GunModifications = vain.Categories.Blatant:CreateModule({
-		Name = 'GunModifications',
+		Name = 'Gun Modifications',
 		Function = function(callback)
 			if callback then
 				GunModifications:Clean(hookEvent('START_FPV_SOL_RECOIL_ANIM', function()
@@ -1153,7 +1153,7 @@ run(function()
 	end
 	
 	SpinBot = vain.Categories.Blatant:CreateModule({
-		Name = 'SpinBot',
+		Name = 'Spin Bot',
 		Function = function(callback)
 			if callback then
 				SpinBot:Clean(hookEvent('STEP_SOL_CFRAME', function(id)
@@ -1250,7 +1250,7 @@ run(function()
 	end
 	
 	GrenadeESP = vain.Categories.Render:CreateModule({
-		Name = 'GrenadeESP',
+		Name = 'Grenade ESP',
 		Function = function(callback)
 			if callback then
 				old = hookfunction(frontlines.SpawnThrowable, function(id, pos, velo)
@@ -1297,7 +1297,7 @@ run(function()
 	local NoHurtCam
 	
 	NoHurtCam = vain.Categories.Render:CreateModule({
-		Name = 'NoHurtCam',
+		Name = 'No Hurt Cam',
 		Function = function(callback)
 			if callback then
 				NoHurtCam:Clean(hookEvent('UPDATE_FPV_SOL_DAMAGE_GFX', function() return true end))
@@ -1315,7 +1315,7 @@ run(function()
 	local hook = false
 	
 	ThirdPerson = vain.Categories.Render:CreateModule({
-		Name = 'ThirdPerson',
+		Name = 'Third Person',
 		Function = function(callback)
 			if callback then
 				ThirdPerson:Clean(hookEvent('STEP_FPV_SOL_CAMERA', function()
@@ -1387,7 +1387,7 @@ run(function()
 	local AutoRespawn
 	
 	AutoRespawn = vain.Categories.Utility:CreateModule({
-		Name = 'AutoRespawn',
+		Name = 'Auto Respawn',
 		Function = function(callback)
 			if callback then
 				AutoRespawn:Clean(hookEvent('ENTER_CLI_KILLCAM', function(id, health)
@@ -1410,7 +1410,7 @@ run(function()
 	local oldchat
 	
 	ChatSpammer = vain.Categories.Utility:CreateModule({
-		Name = 'ChatSpammer',
+		Name = 'Chat Spammer',
 		Function = function(callback)
 			if callback then
 				local ind = 1
@@ -1443,7 +1443,7 @@ run(function()
 	local pickupdelay = tick()
 	
 	PickupRange = vain.Categories.Utility:CreateModule({
-		Name = 'PickupRange',
+		Name = 'Pickup Range',
 		Function = function(callback)
 			if callback then 
 				repeat
@@ -1484,7 +1484,7 @@ run(function()
 	local drawingobjs = {}
 	
 	BulletTracers = vain.Legit:CreateModule({
-		Name = 'BulletTracers',
+		Name = 'Bullet Tracers',
 		Function = function(callback)
 			if callback then 
 				BulletTracers:Clean(hookEvent('SPAWN_FPV_SOL_BULLET', function(id, btype, origin, velocity)
