@@ -42,6 +42,8 @@ local mainapi = {
 		['Beehive ESP'] = 'UPD',
 		['Block Selector Color'] = 'UPD',
 		['Stream Remover'] = 'UPD',
+		['Fly'] = 'UPD',
+		['Infinite Jump'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
 	-- Profiles window (each installs as a new, editable local profile). Populated by hand

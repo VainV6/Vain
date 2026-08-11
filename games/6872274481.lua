@@ -253,6 +253,57 @@ local function isAboveVoid(position)
 	return result == nil
 end
 
+-- Vain-styled cooldown bar, positioned just above the native BedWars healthbar
+-- (same HotbarHealthbarContainer anchor Auto Bank already uses). Purely a
+-- visual primitive for now -- SetProgress(0-1)/Show/Hide is the whole API, no
+-- gameplay consequence wired to it yet (future cooldown-driven features will
+-- reuse this same bar rather than each building their own).
+local function createVainCooldownBar(barColor)
+	local UI = Instance.new('Frame')
+	UI.Name = 'VainCooldownBar'
+	UI.Size = UDim2.new(1, -40, 0, 6)
+	UI.Position = UDim2.fromOffset(20, -46)
+	UI.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+	UI.BackgroundTransparency = 0.25
+	UI.BorderSizePixel = 0
+	UI.Visible = false
+	UI.Parent = vain.gui
+	local bgCorner = Instance.new('UICorner')
+	bgCorner.CornerRadius = UDim.new(1, 0)
+	bgCorner.Parent = UI
+
+	local fill = Instance.new('Frame')
+	fill.Name = 'Fill'
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = barColor or Color3.fromRGB(90, 170, 255)
+	fill.BorderSizePixel = 0
+	fill.Parent = UI
+	local fillCorner = Instance.new('UICorner')
+	fillCorner.CornerRadius = UDim.new(1, 0)
+	fillCorner.Parent = fill
+
+	local lastPosUpdate = 0
+	local api = {}
+	function api.UpdatePosition()
+		local now = tick()
+		if (now - lastPosUpdate) < 0.5 then return end
+		lastPosUpdate = now
+		local playerGui = lplr.PlayerGui
+		local hotbar = playerGui and playerGui:FindFirstChild('hotbar')
+		local container = hotbar and hotbar['1'] and hotbar['1']:FindFirstChild('HotbarHealthbarContainer')
+		if container then
+			UI.Position = UDim2.fromOffset(20, (container.AbsolutePosition.Y + guiService:GetGuiInset().Y) - 46)
+		end
+	end
+	function api.SetProgress(frac)
+		fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
+	end
+	function api.Show() UI.Visible = true end
+	function api.Hide() UI.Visible = false end
+	function api.Destroy() pcall(function() UI:Destroy() end) end
+	return api
+end
+
 local function isFrozen(entity, threshold)
 	threshold = threshold or 10
 	local char
@@ -5716,7 +5767,12 @@ run(function()
     local rayCheck = RaycastParams.new()
     rayCheck.RespectCanCollide = true
     local up, down, old = 0, 0
-    
+    -- Void cooldown bar: ticks down from 2.5s while flying with no ground
+    -- below, resets the instant there's ground below again. Purely visual for
+    -- now (see createVainCooldownBar).
+    local flyCooldownBar
+    local flyVoidCooldown = 2.5
+
     Fly = vain.Categories.Blatant:CreateModule({
         Name = 'Fly',
         Tooltip = 'Lets you fly freely around the map',
@@ -5727,7 +5783,21 @@ run(function()
                 up, down, old = 0, 0, bedwars.BalloonController.deflateBalloon
                 bedwars.BalloonController.deflateBalloon = function() end
                 local tpTick, tpToggle, oldy = tick(), true
-    
+
+                flyVoidCooldown = 2.5
+                flyCooldownBar = flyCooldownBar or createVainCooldownBar()
+                flyCooldownBar.Show()
+                Fly:Clean(runService.Heartbeat:Connect(function(dt)
+                    if not entitylib.isAlive then return end
+                    flyCooldownBar.UpdatePosition()
+                    if isAboveVoid(entitylib.character.RootPart.Position) then
+                        flyVoidCooldown = math.max(0, flyVoidCooldown - dt)
+                    else
+                        flyVoidCooldown = 2.5
+                    end
+                    flyCooldownBar.SetProgress(flyVoidCooldown / 2.5)
+                end))
+
                 if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
                     bedwars.BalloonController:inflateBalloon()
                 end
@@ -5823,6 +5893,7 @@ run(function()
                         bedwars.BalloonController:deflateBalloon()
                     end
                 end
+                if flyCooldownBar then flyCooldownBar.Hide() end
             end
         end,
         ExtraText = function()

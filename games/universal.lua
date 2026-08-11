@@ -398,6 +398,67 @@ end
 local hash = loadstring(downloadFile('vain/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('vain/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('vain/libraries/entity.lua'), 'entitylibrary')()
+
+local _isAboveVoidParams = RaycastParams.new()
+_isAboveVoidParams.FilterType = Enum.RaycastFilterType.Exclude
+local function isAboveVoid(position)
+	_isAboveVoidParams.FilterDescendantsInstances = {entitylib.character.Character}
+	local result = workspace:Raycast(position, Vector3.new(0, -500, 0), _isAboveVoidParams)
+	return result == nil
+end
+
+-- Vain-styled cooldown bar, positioned just above the native BedWars healthbar.
+-- Purely a visual primitive for now -- SetProgress(0-1)/Show/Hide is the whole
+-- API, no gameplay consequence wired to it yet. BedWars-only (see call sites
+-- gated on game.GameId == 2619619496) since the anchor point (hotbar['1']
+-- .HotbarHealthbarContainer) is BedWars-specific UI that doesn't exist in
+-- other games this same file loads for.
+local function createVainCooldownBar(barColor)
+	local UI = Instance.new('Frame')
+	UI.Name = 'VainCooldownBar'
+	UI.Size = UDim2.new(1, -40, 0, 6)
+	UI.Position = UDim2.fromOffset(20, -46)
+	UI.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+	UI.BackgroundTransparency = 0.25
+	UI.BorderSizePixel = 0
+	UI.Visible = false
+	UI.Parent = vain.gui
+	local bgCorner = Instance.new('UICorner')
+	bgCorner.CornerRadius = UDim.new(1, 0)
+	bgCorner.Parent = UI
+
+	local fill = Instance.new('Frame')
+	fill.Name = 'Fill'
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = barColor or Color3.fromRGB(90, 170, 255)
+	fill.BorderSizePixel = 0
+	fill.Parent = UI
+	local fillCorner = Instance.new('UICorner')
+	fillCorner.CornerRadius = UDim.new(1, 0)
+	fillCorner.Parent = fill
+
+	local lastPosUpdate = 0
+	local api = {}
+	function api.UpdatePosition()
+		local now = tick()
+		if (now - lastPosUpdate) < 0.5 then return end
+		lastPosUpdate = now
+		local playerGui = lplr.PlayerGui
+		local hotbar = playerGui and playerGui:FindFirstChild('hotbar')
+		local container = hotbar and hotbar['1'] and hotbar['1']:FindFirstChild('HotbarHealthbarContainer')
+		if container then
+			UI.Position = UDim2.fromOffset(20, (container.AbsolutePosition.Y + guiService:GetGuiInset().Y) - 46)
+		end
+	end
+	function api.SetProgress(frac)
+		fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
+	end
+	function api.Show() UI.Visible = true end
+	function api.Hide() UI.Visible = false end
+	function api.Destroy() pcall(function() UI:Destroy() end) end
+	return api
+end
+
 local whitelist = {
 	alreadychecked = {},
 	customtags = {},
@@ -3115,6 +3176,12 @@ run(function()
     local InfiniteJump
     local Mode
     local jumps = 0
+    -- BedWars-only void cooldown bar: ticks down from 2.5s while airborne with
+    -- no ground below, resets the instant there's ground below again. Gated on
+    -- GameId since the bar's anchor (native BedWars healthbar UI) and the void
+    -- concept itself don't apply to other games this same file loads for.
+    local jumpCooldownBar
+    local jumpVoidCooldown = 2.5
 
     InfiniteJump = vain.Categories.Blatant:CreateModule({
     	Name = 'Infinite Jump',
@@ -3136,6 +3203,24 @@ run(function()
     					entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     				end
     			end))
+
+    			if game.GameId == 2619619496 then
+    				jumpVoidCooldown = 2.5
+    				jumpCooldownBar = jumpCooldownBar or createVainCooldownBar()
+    				jumpCooldownBar.Show()
+    				InfiniteJump:Clean(runService.Heartbeat:Connect(function(dt)
+    					if not entitylib.isAlive then return end
+    					jumpCooldownBar.UpdatePosition()
+    					if isAboveVoid(entitylib.character.RootPart.Position) then
+    						jumpVoidCooldown = math.max(0, jumpVoidCooldown - dt)
+    					else
+    						jumpVoidCooldown = 2.5
+    					end
+    					jumpCooldownBar.SetProgress(jumpVoidCooldown / 2.5)
+    				end))
+    			end
+    		else
+    			if jumpCooldownBar then jumpCooldownBar.Hide() end
     		end
     	end,
     	ExtraText = function()
