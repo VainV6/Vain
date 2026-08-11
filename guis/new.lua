@@ -47,6 +47,7 @@ local mainapi = {
 		['Auto Honor'] = 'UPD',
 		['FPS Unlock'] = 'NEW',
 		['Inventory ESP'] = 'NEW',
+		['Party List'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
 	-- Profiles window (each installs as a new, editable local profile). Populated by hand

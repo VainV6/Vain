@@ -2948,14 +2948,24 @@ local lplr = playersService.LocalPlayer
 				end
 			end
 
-			-- 2) fallback: team membership from the store (always present)
+			-- 2) fallback: team membership via each player's own Team attribute --
+			-- the proven pattern used everywhere else in this file (isEnemy checks,
+			-- etc: player:GetAttribute('Team')). Game.teams entries only ever carry
+			-- .id/.name here (confirmed by every other working read of this same
+			-- table), never a .members list, so the old `t.members` check always
+			-- got nil and this fallback silently produced 0 groups every time.
 			if #groups == 0 then
 				pcall(function()
-					local teams = bedwars.Store:getState().Game.teams
-					if type(teams) == 'table' then
-						for _, t in pairs(teams) do
-							if type(t) == 'table' and t.members then add(t.members) end
+					local byTeam = {}
+					for _, plr in playersService:GetPlayers() do
+						local teamId = plr:GetAttribute('Team')
+						if teamId ~= nil then
+							byTeam[teamId] = byTeam[teamId] or {}
+							table.insert(byTeam[teamId], plr.UserId)
 						end
+					end
+					for _, ids in pairs(byTeam) do
+						add(ids)
 					end
 				end)
 			end
@@ -3207,7 +3217,6 @@ local lplr = playersService.LocalPlayer
 				end
 			end
 		})
-		PartyList:Lock('Being debugged, temporarily disabled.')
 		ShowTablist = PartyList:CreateToggle({
 			Name = 'Tab-list Tags', Default = true,
 			Tooltip = 'Show the coloured party tag next to each player\'s tab-list name.',
