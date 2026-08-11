@@ -221,14 +221,10 @@ local function finishLoading()
 	vain.Init = nil
 
 	-- If the Vain loading screen was shown (a fresh install / update), everything
-	-- is now loaded: fill + fade it out, then show the What's New panel. (When no
-	-- loading screen ran, new.lua shows What's New on its own.)
+	-- is now loaded: fill + fade it out.
 	local loading = getgenv and getgenv().vainLoading
 	if loading and loading.isActive() then
-		loading.finish(function()
-			-- one-time (no force): only shows once per new version (patchseen.txt)
-			if getgenv().vainShowPatchNotes then getgenv().vainShowPatchNotes(false) end
-		end)
+		loading.finish()
 	end
 
 	-- Load saved settings and start the local save loop FIRST. These are fast,
