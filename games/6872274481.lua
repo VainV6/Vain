@@ -8833,7 +8833,7 @@ run(function()
 	Range = ProjectileAimbot:CreateSlider({
 		Name = 'Range',
 		Min = 10,
-		Max = 500,
+		Max = 4000,
 		Default = 100,
 		Tooltip = 'Maximum distance (in studs) for targeting'
 	})
