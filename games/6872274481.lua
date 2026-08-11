@@ -34534,6 +34534,9 @@ run(function()
         Tooltip = 'Color of the block placement outline',
         Function = function(h, s, v)
             blockSelectorColor = Color3.fromHSV(h, s, v)
+            for inst in watchers do
+                pcall(function() inst.Color3 = blockSelectorColor end)
+            end
         end
     })
 end)
