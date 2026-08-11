@@ -14015,6 +14015,31 @@ run(function()
         Tooltip = 'Automatically uses kit abilities.'
     })
     Legit = AutoKit:CreateToggle({Name = 'Legit Range', Tooltip = 'Restricts range to a value indistinguishable from vanilla'})
+    local kitTooltips = {
+        battery = 'Automatically consumes nearby battery pickups when ready',
+        beekeeper = 'Automatically collects nearby bees',
+        bigman = 'Automatically consumes nearby tree orbs',
+        block_kicker = 'Automatically aims your kicked blocks at the nearest player',
+        cat = 'Automatically triggers your pounce attack when leaping',
+        davey = 'Automatically breaks your own cannon block after launching',
+        dragon_slayer = 'Automatically punches marked Kaliyah emblem targets',
+        farmer_cletus = 'Automatically harvests nearby crops',
+        fisherman = 'Automatically wins the fishing minigame',
+        gingerbread_man = 'Automatically breaks your own launch pad after using it',
+        hannah = 'Automatically executes marked targets',
+        jailor = 'Automatically collects nearby jailor souls',
+        grim_reaper = 'Automatically consumes a soul to heal when your health is low',
+        melody = 'Automatically heals your lowest-health nearby teammate with your guitar',
+        metal_detector = 'Automatically picks up nearby hidden metal',
+        miner = 'Automatically digs up petrified players',
+        pinata = 'Automatically deposits candy into nearby pinatas',
+        spirit_assassin = 'Automatically uses nearby Evelynn souls',
+        star_collector = 'Automatically collects nearby stars',
+        summoner = 'Automatically attacks the lowest-health nearby player with your claw',
+        void_dragon = 'Automatically flaps wings for speed and breathes fire at nearby players while in dragon form',
+        warlock = 'Automatically targets the nearest player or NPC with your warlock staff',
+        wizard = "Automatically uses your kit's ability on the lowest-health nearby player",
+    }
     local sortTable = {}
     for i in AutoKitFunctions do
         table.insert(sortTable, i)
@@ -14024,7 +14049,7 @@ run(function()
     end)
     for _, v in sortTable do
         Toggles[v] = AutoKit:CreateToggle({
-        	Tooltip = "Automatically activates this kit's ability when the kit is equipped",
+        	Tooltip = kitTooltips[v] or "Automatically activates this kit's ability when the kit is equipped",
             Name = bedwars.BedwarsKitMeta[v].name,
             Default = true
         })
