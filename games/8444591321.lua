@@ -59,3 +59,5 @@ do
 		shared.vain:CreateNotification('Vain', 'BedWars modules did not download fully -- reinject.', 12, 'alert')
 	end
 end
+
+--VAINEOF

@@ -10319,3 +10319,5 @@ if game.GameId == 2619619496 and game.PlaceId ~= 6872265039 and not shared.VainB
         vain:CreateNotification('Vain', 'BedWars modules did not download fully -- please reinject.', 12, 'alert')
     end
 end
+
+--VAINEOF
