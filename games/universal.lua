@@ -5570,6 +5570,7 @@ run(function()
     })
     Method = ESP:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = '2D - Draws boxes/labels\n3D - Renders highlights through walls\nSkeleton - Draws a bone skeleton',
     	List = { '2D', '3D', 'Skeleton' },
     	Function = function(val)
     		if ESP.Enabled then
@@ -5586,6 +5587,7 @@ run(function()
     })
     Color = ESP:CreateColorSlider({
     	Name = 'Player Color',
+    	Tooltip = 'Fallback ESP color when a team color is unavailable',
     	Function = function(hue, sat, val)
     		if ESP.Enabled and ColorFunc[methodused] then
     			ColorFunc[methodused](hue, sat, val)
@@ -5594,6 +5596,7 @@ run(function()
     })
     BoundingBox = ESP:CreateToggle({
     	Name = 'Bounding Box',
+    	Tooltip = 'Draws a box around the player (2D mode only)',
     	Function = function()
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5605,6 +5608,7 @@ run(function()
     })
     Filled = ESP:CreateToggle({
     	Name = 'Filled',
+    	Tooltip = 'Fills in the bounding box instead of just an outline',
     	Function = function()
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5615,6 +5619,7 @@ run(function()
     })
     HealthBar = ESP:CreateToggle({
     	Name = 'Health Bar',
+    	Tooltip = 'Draws a health bar next to the bounding box (2D mode only)',
     	Function = function()
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5625,6 +5630,7 @@ run(function()
     })
     Name = ESP:CreateToggle({
     	Name = 'Name',
+    	Tooltip = 'Shows the player\'s name above the bounding box (2D mode only)',
     	Function = function(callback)
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5637,6 +5643,7 @@ run(function()
     })
     DisplayName = ESP:CreateToggle({
     	Name = 'Use Displayname',
+    	Tooltip = 'Shows the player\'s display name instead of their @username',
     	Function = function()
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5648,6 +5655,7 @@ run(function()
     })
     Background = ESP:CreateToggle({
     	Name = 'Show Background',
+    	Tooltip = 'Shows a background box behind the ESP name',
     	Function = function()
     		if ESP.Enabled then
     			ESP:Toggle()
@@ -5669,6 +5677,7 @@ run(function()
     })
     Distance = ESP:CreateToggle({
     	Name = 'Distance Check',
+    	Tooltip = 'Only shows ESP for entities within the distance range below',
     	Function = function(callback)
     		DistanceLimit.Object.Visible = callback
     	end,
@@ -5736,6 +5745,7 @@ run(function()
     })
     Mode = Fullbright:CreateDropdown({
         Name = 'Mode',
+        Tooltip = 'Lighting - Adjusts global lighting properties\nPointLight - Attaches a bright light to your character',
         List = {'Lighting', 'PointLight'},
         Function = function()
             if Fullbright.Enabled then
@@ -6117,17 +6127,20 @@ run(function()
     })
     Preset = Shader:CreateDropdown({
         Name = 'Preset',
+        Tooltip = 'Lighting/post-processing preset to apply',
         List = { 'Realistic', 'Vibrant', 'Cinematic', 'Night' },
         Default = 'Realistic',
         Function = function() if Shader.Enabled then build() end end
     })
     Brightness = Shader:CreateSlider({
         Name = 'Brightness',
+        Tooltip = 'Additional brightness applied on top of the preset',
         Min = -20, Max = 20, Default = 0,
         Function = function() if Shader.Enabled then build() end end
     })
     Saturation = Shader:CreateSlider({
         Name = 'Saturation',
+        Tooltip = 'Additional color saturation applied on top of the preset',
         Min = -30, Max = 50, Default = 0,
         Function = function() if Shader.Enabled then build() end end
     })
@@ -6364,6 +6377,7 @@ run(function()
     })
     Color = GamingChair:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Outline color of the gaming chair highlight',
     	Function = function(h, s, v)
     		if chairhighlight then
     			chairhighlight.OutlineColor = Color3.fromHSV(h, s, v)
