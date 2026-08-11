@@ -9521,6 +9521,7 @@ run(function()
     })
     Mode = Disguise:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Character - Disguises your avatar as another user\nAnimation - Applies an animation pack',
     	List = { 'Character', 'Animation' },
     	Function = function()
     		if Disguise.Enabled then
@@ -9616,6 +9617,7 @@ run(function()
     })
     Value = FOV:CreateSlider({
     	Name = 'FOV',
+    	Tooltip = 'Camera field of view',
     	Min = 30,
     	Max = 120,
     })
@@ -9657,6 +9659,7 @@ run(function()
     })
     FPS:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the FPS text',
     	Blacklist = 'Gotham',
     	Function = function(val)
     		label.FontFace = val
@@ -9664,6 +9667,7 @@ run(function()
     })
     FPS:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the FPS counter',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -9806,6 +9810,7 @@ run(function()
     holder.Parent = Keystrokes.Children
     Style = Keystrokes:CreateDropdown({
     	Name = 'Key Style',
+    	Tooltip = 'Keyboard - Shows WASD letters\nArrow - Shows directional arrows',
     	List = { 'Keyboard', 'Arrow' },
     	Function = function()
     		if Keystrokes.Enabled then
@@ -9816,6 +9821,7 @@ run(function()
     })
     Color = Keystrokes:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the keys when not pressed',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -9829,6 +9835,7 @@ run(function()
     })
     Keystrokes:CreateToggle({
     	Name = 'Show Spacebar',
+    	Tooltip = 'Also shows a spacebar key indicator',
     	Function = function(callback)
     		Keystrokes.Children.Size = UDim2.fromOffset(110, callback and 107 or 78)
     		if callback then
@@ -9864,6 +9871,7 @@ run(function()
     })
     Memory:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the memory text',
     	Blacklist = 'Gotham',
     	Function = function(val)
     		label.FontFace = val
@@ -9871,6 +9879,7 @@ run(function()
     })
     Memory:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the memory counter',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -9912,6 +9921,7 @@ run(function()
     })
     Ping:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the ping text',
     	Blacklist = 'Gotham',
     	Function = function(val)
     		label.FontFace = val
@@ -9919,6 +9929,7 @@ run(function()
     })
     Ping:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the ping counter',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
