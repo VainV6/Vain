@@ -13625,6 +13625,7 @@ end)
 
 run(function()
     local old
+    local oldNames = {}
 
     vain.Categories.Render:CreateModule({
     	Name = 'Stream Remover',
@@ -13635,12 +13636,31 @@ run(function()
     			bedwars.GamePlayer.canSeeThroughDisguise = function()
     				return true
     			end
+    			-- Name alone doesn't always redraw; also clear the disguise attribute
+    			-- players actually set (which also gates their hidden level) and force
+    			-- a nametag refresh so both name and level show everywhere.
+    			for _, plrs in playersService:GetPlayers() do
+    				if plrs == lplr then continue end
+    				local disguiseName = plrs:GetAttribute('DisguiseDisplayName')
+    				if disguiseName and disguiseName ~= '' then
+    					oldNames[plrs] = disguiseName
+    					plrs:SetAttribute('DisguiseDisplayName', '')
+    				end
+    			end
+    			pcall(function() bedwars.StreamerModeController:updateNametags(true) end)
     		else
     			bedwars.GamePlayer.canSeeThroughDisguise = old
     			old = nil
+    			for _, plrs in playersService:GetPlayers() do
+    				if oldNames[plrs] then
+    					plrs:SetAttribute('DisguiseDisplayName', oldNames[plrs])
+    					oldNames[plrs] = nil
+    				end
+    			end
+    			pcall(function() bedwars.StreamerModeController:updateNametags(true) end)
     		end
     	end,
-    	Tooltip = 'Disables player\'s streamer mode clientsidedly'
+    	Tooltip = 'Disables player\'s streamer mode clientsidedly, showing their real name and level'
     })
 end)
 

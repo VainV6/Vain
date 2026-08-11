@@ -37,6 +37,11 @@ local mainapi = {
 		['Auto Hannah'] = 'UPD',
 		['Auto Ember'] = 'UPD',
 		['Fisherman Spy'] = 'UPD',
+		['Aim Assist'] = 'UPD',
+		['Auto Clicker'] = 'UPD',
+		['Beehive ESP'] = 'UPD',
+		['Block Selector Color'] = 'UPD',
+		['Stream Remover'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
 	-- Profiles window (each installs as a new, editable local profile). Populated by hand
