@@ -1042,6 +1042,19 @@ local sortmethods, breakmethods = {
 	end,
 }
 
+-- Target Priority: a secondary sort pass applied after the module's own Sort,
+-- grouping one entity type ahead of the other when both are valid targets
+-- (e.g. always prefer a Player target over an NPC, even if the NPC sorts
+-- higher by distance/health/etc). 'None' skips this pass entirely.
+local prioritymethods = {
+	Players = function(a, b)
+		return (a.Entity.Player ~= nil) and (b.Entity.Player == nil)
+	end,
+	NPCs = function(a, b)
+		return (a.Entity.NPC == true) and (b.Entity.NPC ~= true)
+	end,
+}
+
 run(function()
 	local oldstart = entitylib.start
 	local function customEntity(ent)
@@ -2122,6 +2135,7 @@ local AimAssist
 	local AimPart
 	local ViewMode
 	local PriorityMode
+	local TargetPriority
 	local ShakeToggle
 	local ShakeAmount
 	local WorkWithProjectiles
@@ -3283,7 +3297,8 @@ local lplr = playersService.LocalPlayer
 								Wallcheck = Targets.Walls.Enabled,
 								Players = Targets.Players.Enabled,
 								NPCs = Targets.NPCs.Enabled,
-								Sort = sortmethods[Sort.Value]
+								Sort = sortmethods[Sort.Value],
+								Priority = prioritymethods[TargetPriority.Value]
 							})
 
 							if found then
@@ -3411,6 +3426,13 @@ local lplr = playersService.LocalPlayer
 			Threat = 'Targets the enemy judged to be the greatest combat threat',
 			Kit = 'Prioritizes dangerous kit users (Hannah, Spirit Assassin, etc.)',
 		},
+	})
+
+	TargetPriority = AimAssist:CreateDropdown({
+		Name = 'Target Priority',
+		List = {'None', 'Players', 'NPCs'},
+		Default = 'None',
+		Tooltip = 'When both are valid targets, prefer this type over the other',
 	})
 
 	AimPart = AimAssist:CreateDropdown({
@@ -8377,6 +8399,7 @@ run(function()
 	local OtherProjectiles
 	local Blacklist
 	local SortMethod
+	local TargetPriority
 	local HitChance
 	local AeroPAChargePercent
 	local RandomHeadPercent
@@ -8641,7 +8664,8 @@ run(function()
 							NPCs = (Targets.NPCs and Targets.NPCs.Enabled) or false,
 							Wallcheck = Targets.Walls.Enabled,
 							Origin = originPos,
-							Sort = sortmethods[SortMethod.Value]
+							Sort = sortmethods[SortMethod.Value],
+							Priority = prioritymethods[TargetPriority.Value]
 						})
 						if PriorityMode and PriorityMode.Enabled then
 							lockedPATarget = plr
@@ -8853,6 +8877,13 @@ run(function()
 		List = {'Distance', 'Damage', 'Threat', 'Kit', 'Health', 'Angle', 'Cursor', 'Forest'},
 		Default = 'Distance',
 		Tooltip = 'Prioritize targets when multiple are in range'
+	})
+
+	TargetPriority = ProjectileAimbot:CreateDropdown({
+		Name = 'Target Priority',
+		List = {'None', 'Players', 'NPCs'},
+		Default = 'None',
+		Tooltip = 'When both are valid targets, prefer this type over the other',
 	})
 
 	PriorityMode = ProjectileAimbot:CreateToggle({

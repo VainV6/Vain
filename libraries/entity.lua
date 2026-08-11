@@ -148,6 +148,9 @@ entitylib.EntityMouse = function(entitysettings)
 
 		if #sortingTable > 1 then
 			table.sort(sortingTable, entitysettings.Sort or sortDistance)
+			if entitysettings.Priority then
+				table.sort(sortingTable, entitysettings.Priority)
+			end
 		end
 
 		for _, v in sortingTable do

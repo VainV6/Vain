@@ -73,6 +73,7 @@ local textService = cloneref(game:GetService('TextService'))
 local guiService = cloneref(game:GetService('GuiService'))
 local runService = cloneref(game:GetService('RunService'))
 local httpService = cloneref(game:GetService('HttpService'))
+local lightingService = cloneref(game:GetService('Lighting'))
 
 local fontsize = Instance.new('GetTextBoundsParams')
 fontsize.Width = math.huge
@@ -6213,6 +6214,22 @@ mainapi.LegitOnly = general:CreateToggle({
 		end
 	end
 })
+
+local uiBlur = Instance.new('BlurEffect')
+uiBlur.Name = 'VainUIBlur'
+uiBlur.Size = 12
+uiBlur.Enabled = false
+uiBlur.Parent = lightingService
+mainapi.MotionBlur = general:CreateToggle({
+	Name = 'Motion Blur',
+	Tooltip = 'Blurs the game behind the UI while it\'s open',
+	Function = function(callback)
+		uiBlur.Enabled = callback and clickgui.Visible
+	end
+})
+clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
+	uiBlur.Enabled = mainapi.MotionBlur.Enabled and clickgui.Visible
+end)
 general:CreateButton({
 	Name = 'Reset current profile',
 	Function = function()
