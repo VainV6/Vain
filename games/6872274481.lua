@@ -922,6 +922,14 @@ local sortmethods, breakmethods = {
 		local angle = math.acos(localfacing:Dot(((a.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
 		local angle2 = math.acos(localfacing:Dot(((b.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
 		return angle < angle2
+	end,
+	Cursor = function(a, b)
+		local mousePos = inputService:GetMouseLocation()
+		local aPoint = gameCamera:WorldToViewportPoint(a.Entity.RootPart.Position)
+		local bPoint = gameCamera:WorldToViewportPoint(b.Entity.RootPart.Position)
+		local aDist = (Vector2.new(aPoint.X, aPoint.Y) - mousePos).Magnitude
+		local bDist = (Vector2.new(bPoint.X, bPoint.Y) - mousePos).Magnitude
+		return aDist < bDist
 	end
 }, {
 	Health = function(...)
