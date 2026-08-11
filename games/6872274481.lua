@@ -11762,32 +11762,25 @@ run(function()
                     elseif val == 'GAMEPAD' or val == 'CONTROLLER' then return 'Controller'
                     else return 'PC' end
                 end
-                -- Plain short text instead of raw emoji glyphs: Roblox's legacy
-                -- fonts (Arial included) don't reliably have glyphs for every emoji
-                -- codepoint used here, so some players silently rendered a blank
-                -- box instead of an icon. Text always renders.
-                local deviceShort = { Mobile = 'MOB', Controller = 'CTRL', PC = 'PC' }
-                local deviceLabel = Instance.new('TextLabel')
+                local deviceIcons = {
+                    Mobile = 'vain/assets/new/devicemobile.png',
+                    Controller = 'vain/assets/new/devicecontroller.png',
+                    PC = 'vain/assets/new/devicepc.png',
+                }
+                local deviceLabel = Instance.new('ImageLabel')
                 deviceLabel.Name = 'DeviceIcon'
-                deviceLabel.Size = udim2fromOffset(32, 22)
+                deviceLabel.Size = udim2fromOffset(22, 22)
                 deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
                 deviceLabel.BackgroundTransparency = 1
                 deviceLabel.BorderSizePixel = 0
-                deviceLabel.RichText = false
-                deviceLabel.TextScaled = true
-                deviceLabel.TextSize = 16
-                deviceLabel.TextStrokeTransparency = 0.5
-                deviceLabel.TextStrokeColor3 = color3new()
-                deviceLabel.FontFace = Font.fromEnum(Enum.Font.GothamBold)
-                deviceLabel.TextColor3 = Color3.new(1, 1, 1)
                 deviceLabel.Parent = nametag
 
                 local deviceType = getPlayerDevice(ent.Player)
                 if deviceType then
-                    deviceLabel.Text = deviceShort[deviceType] or ''
+                    deviceLabel.Image = getcustomasset(deviceIcons[deviceType])
                 else
                     -- UserInputType hasn't replicated yet for a just-joined player --
-                    -- pick it up the moment it does instead of leaving the label blank
+                    -- pick it up the moment it does instead of leaving the icon blank
                     -- for the rest of the match.
                     local deviceConn
                     deviceConn = ent.Player:GetAttributeChangedSignal('UserInputType'):Connect(function()
@@ -11797,7 +11790,7 @@ run(function()
                         end
                         local newType = getPlayerDevice(ent.Player)
                         if newType then
-                            deviceLabel.Text = deviceShort[newType] or ''
+                            deviceLabel.Image = getcustomasset(deviceIcons[newType])
                             if deviceConn then deviceConn:Disconnect() end
                         end
                     end)
