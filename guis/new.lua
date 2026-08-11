@@ -290,6 +290,17 @@ local function addTooltip(gui, text)
 		if tooltipOwner == gui then tooltipOwner = nil end
 		tooltip.Visible = false
 	end)
+	-- Most tooltipped widgets live inside a scrolling list. Scrolling with the
+	-- wheel moves the widget out from under a stationary cursor without ever
+	-- firing MouseMoved, so the tooltip was staying frozen at its old screen
+	-- position instead of following (or clearing). Hide it whenever the widget's
+	-- own screen position changes for a reason other than the mouse moving.
+	gui:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
+		if tooltipOwner == gui then
+			tooltipOwner = nil
+			tooltip.Visible = false
+		end
+	end)
 end
 
 local function checkKeybinds(compare, target, key)
