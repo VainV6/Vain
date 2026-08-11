@@ -87,6 +87,10 @@ local store = {
 	silasAbilityTime = 0,
 	terraStompTime = 0,
 	terraKickTime = 0,
+	-- Bed Alarm's "Show Alarm Model" indexes this by player without ever
+	-- initializing it, which would throw "attempt to index nil value" the
+	-- first time that toggle is ever turned on.
+	BedAlarm = {},
 	hand = {},
 	rank = setmetatable({}, {
 		__index = function(self, index)
@@ -16165,6 +16169,14 @@ run(function()
 	local Users
 	local AlertDuration
 	local ClosetDetect
+	-- Ported from the old standalone "Staff HUD" module, which duplicated this
+	-- module's entire detection pipeline (same backend, same closet-ID list)
+	-- just to show a small corner counter. Reuses this module's own
+	-- detectedPlayers/refreshStaffCounts instead of tracking a second copy.
+	local ShowSpec
+	local ShowCloset
+	local ShowMod
+	local ShowImpossible
 
 	local blacklistedclans = {'gg', 'gg2', 'DV', 'DV2'}
 	local blacklisteduserids = {1502104539, 3826146717, 4531785383, 1049767300, 4926350670, 653085195, 184655415, 2752307430, 5087196317, 5744061325, 1536265275}
@@ -16230,6 +16242,77 @@ run(function()
 		listsLoaded = true
 	end)
 
+	local rowDefs = {
+		{key='spec',       label='Spec',       color=Color3.fromRGB(100,180,255), order=1},
+		{key='closet',     label='Closet',     color=Color3.fromRGB(255,140,0),   order=2},
+		{key='mod',        label='Mod',        color=Color3.fromRGB(255,60,60),   order=3},
+		{key='impossible', label='Impossible', color=Color3.fromRGB(200,50,255),  order=4},
+	}
+
+	local hudGui = Instance.new('ScreenGui')
+	hudGui.Name = 'Staff HUD'
+	hudGui.ResetOnSpawn = false
+	hudGui.DisplayOrder = 15
+	hudGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	hudGui.Parent = vain.gui
+	hudGui.Enabled = false
+
+	local hudFrame = Instance.new('Frame')
+	hudFrame.Name = 'Container'
+	hudFrame.Parent = hudGui
+	hudFrame.BackgroundColor3 = Color3.fromRGB(15,15,15)
+	hudFrame.BackgroundTransparency = 0.3
+	hudFrame.BorderSizePixel = 0
+	hudFrame.AnchorPoint = Vector2.new(1,1)
+	hudFrame.Position = UDim2.new(1,-8,1,-8)
+	hudFrame.Size = UDim2.new(0,110,0,14)
+	hudFrame.AutomaticSize = Enum.AutomaticSize.Y
+
+	local hudCorner = Instance.new('UICorner')
+	hudCorner.CornerRadius = UDim.new(0,6)
+	hudCorner.Parent = hudFrame
+
+	local hudPad = Instance.new('UIPadding')
+	hudPad.PaddingLeft=UDim.new(0,6) hudPad.PaddingRight=UDim.new(0,6)
+	hudPad.PaddingTop=UDim.new(0,4)  hudPad.PaddingBottom=UDim.new(0,4)
+	hudPad.Parent = hudFrame
+
+	local hudLayout = Instance.new('UIListLayout')
+	hudLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	hudLayout.Padding = UDim.new(0,2)
+	hudLayout.Parent = hudFrame
+
+	local hudRows = {}
+	for _, r in rowDefs do
+		local lbl = Instance.new('TextLabel')
+		lbl.Name = r.key
+		lbl.Parent = hudFrame
+		lbl.BackgroundTransparency = 1
+		lbl.Size = UDim2.new(1,0,0,13)
+		lbl.TextColor3 = r.color
+		lbl.TextSize = 11
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextStrokeTransparency = 0.4
+		lbl.TextStrokeColor3 = Color3.new(0,0,0)
+		lbl.LayoutOrder = r.order
+		lbl.Visible = false
+		hudRows[r.key] = lbl
+	end
+
+	local function updateHud(counts)
+		if not StaffDetector or not StaffDetector.Enabled then hudGui.Enabled = false return end
+		local toggleMap = {spec=ShowSpec, closet=ShowCloset, mod=ShowMod, impossible=ShowImpossible}
+		local anyVisible = false
+		for _, r in rowDefs do
+			local show = toggleMap[r.key] and toggleMap[r.key].Enabled
+			hudRows[r.key].Text = r.label .. ': ' .. (counts[r.key] or 0)
+			hudRows[r.key].Visible = show
+			if show then anyVisible = true end
+		end
+		hudGui.Enabled = anyVisible
+	end
+
 	getgenv()._aerov4_staffCounts = {spec=0, closet=0, mod=0, impossible=0}
 	local function refreshStaffCounts()
 		local c = {spec=0, closet=0, mod=0, impossible=0}
@@ -16242,6 +16325,7 @@ run(function()
 		end
 		getgenv()._aerov4_staffCounts = c
 		vainEvents.StaffCountUpdate:Fire()
+		updateHud(c)
 	end
 
 	local function staffFunction(plr, checktype)
@@ -16404,6 +16488,10 @@ run(function()
 				StaffDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
 				StaffDetector:Clean(playersService.PlayerRemoving:Connect(playerRemoving))
 				for _, v in playersService:GetPlayers() do task.spawn(playerAdded, v) end
+				StaffDetector:Clean(runService.Heartbeat:Connect(function()
+					local compactUI = vain.gui:FindFirstChild('GeneratorCompactUI')
+					hudFrame.Position = (compactUI and compactUI.Enabled) and UDim2.new(1, -136, 1, -8) or UDim2.new(1, -8, 1, -8)
+				end))
 			else
 				table.clear(joined) table.clear(processing) table.clear(detectedPlayers)
 				refreshStaffCounts()
@@ -16420,6 +16508,15 @@ run(function()
 	Profile = StaffDetector:CreateTextBox({Name='Profile',Default='default',Darker=true,Visible=false})
 	Users = StaffDetector:CreateTextList({Name='Users',Placeholder='player (userid)',Function=function() end})
 	task.defer(function() if Profile and Profile.Object then Profile.Object.Visible = (Mode.Value=='Profile') end end)
+
+	ShowSpec       = StaffDetector:CreateToggle({Name='HUD: Spectators',       Default=true, Tooltip='Includes spectating staff in the corner HUD',      Function=function() updateHud(getgenv()._aerov4_staffCounts) end})
+	ShowCloset     = StaffDetector:CreateToggle({Name='HUD: Closet Cheaters', Default=true, Tooltip='Shows suspected closet cheaters in the corner HUD',            Function=function() updateHud(getgenv()._aerov4_staffCounts) end})
+	ShowMod        = StaffDetector:CreateToggle({Name='HUD: Mods',            Default=true, Tooltip='Shows active moderation flags in the corner HUD', Function=function() updateHud(getgenv()._aerov4_staffCounts) end})
+	ShowImpossible = StaffDetector:CreateToggle({Name='HUD: Impossible Joins',Default=true, Tooltip='Shows abnormally-fast joins in the corner HUD',         Function=function() updateHud(getgenv()._aerov4_staffCounts) end})
+
+	vain:Clean(function()
+		pcall(function() hudGui:Destroy() end)
+	end)
 end)
 
 run(function()
@@ -25314,244 +25411,6 @@ run(function()
 end)
 
 run(function()
-	local BedAlarm
-	local Types
-	local Distance
-	local UpdateTick
-	local HighlightEnemies
-	local SoundVolume
-	local ShowAlarm
-
-	local function getBed()
-		if not (entitylib.isAlive and lplr.Character) then return nil end
-		local id = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId')
-		for _, v in collectionService:GetTagged('bed') do
-			if tonumber(id) == tonumber(v:GetAttribute('TeamId')) then
-				return v
-			end
-		end
-		return nil
-	end
-
-	local function createAlarm(bedpos)
-		if not ShowAlarm.Enabled then return end
-		if not bedpos then return end
-		if store.BedAlarm[lplr] then return end
-
-		if bedwars.BedAlarmController then
-			local suc, res = pcall(function()
-				local oldthread = 0
-				if vain.ThreadFix then 
-					oldthread = getthreadidentity()
-					setthreadidentity(8) 
-				end
-
-				local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
-				bedwars.BedAlarmController:getOrCreateBedAlarmModel(myTeam, bedpos)
-
-				if vain.ThreadFix then 
-					setthreadidentity(oldthread) 
-				end
-			end)
-
-			if suc then
-				store.BedAlarm[lplr] = true
-			else
-				vain:CreateNotification("BedAlarm", `Creating Alarm issue: {res}`, 16, 'alert')
-			end
-		end
-	end
-
-	local function AlarmAffects(bedpos)
-		if not ShowAlarm.Enabled or not bedpos then return end
-		if not store.BedAlarm[lplr] then return end
-
-		local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
-		pcall(function()
-			bedwars.BedAlarmController:triggerBedAlarmModel({bedPosition = bedpos, teamId = myTeam})
-		end)
-	end
-
-	local function removeAlarm()
-		if not store.BedAlarm[lplr] then return end
-		
-		local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
-		local alarm = bedwars.BedAlarmController.bedAlarmModelMap[myTeam]
-		if alarm then
-			alarm:Destroy()
-			bedwars.BedAlarmController.bedAlarmModelMap[myTeam] = nil
-		end
-		store.BedAlarm[lplr] = nil
-	end
-
-	local function createHighlight(ent)
-		if store.BedAlarmHighlightedEnimes[ent] then return end
-		
-		local character = ent.character or ent.Character
-		if not character then return end
-
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "BedAlarmHighlight"
-		highlight.Adornee = character
-		highlight.FillColor = Color3.fromRGB(255, 80, 80)
-		highlight.OutlineColor = Color3.fromRGB(255, 100, 100)
-		highlight.FillTransparency = 0.6
-		highlight.OutlineTransparency = 0
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		highlight.Parent = character
-		
-		store.BedAlarmHighlightedEnimes[ent] = highlight
-	end
-
-	local function clearAllHighlights()
-		for _, highlight in pairs(store.BedAlarmHighlightedEnimes) do
-			if highlight and highlight.Parent then highlight:Destroy() end
-		end
-		table.clear(store.BedAlarmHighlightedEnimes)
-	end
-
-	local function removeHighlight(ent)
-		local hl = store.BedAlarmHighlightedEnimes[ent]
-		if hl then
-			hl:Destroy()
-			store.BedAlarmHighlightedEnimes[ent] = nil
-		end
-	end
-
-	BedAlarm = vain.Categories.Utility:CreateModule({
-		Name = "Bed Alarm",
-		Tooltip = 'Notifies when an enemy is near your bed',
-		Function = function(callback)
-			if callback then
-				store.BedAlarmNotifyTick = 0
-				store.BedAlarmSoundTick = 0
-				store.BedAlarmIsTrigged = false
-
-				local bed = getBed()
-				local bedpos = bed and bed:GetPivot().Position or Vector3.zero
-
-				if ShowAlarm.Enabled then
-					createAlarm(bedpos)
-				end
-
-				local _bedAlarmSearch = {Origin = bedpos, Range = Distance.Value, Part = 'RootPart', Players = true, IgnoreLocal = true}
-				repeat
-					local entity = nil
-					if bedpos then
-						_bedAlarmSearch.Origin = bedpos
-						_bedAlarmSearch.Range = Distance.Value
-						entity = entitylib.EntityPosition(_bedAlarmSearch)
-
-						if entity then
-							if getAccountTier(entity.Player) >= 4 and getAccountTier(entity.Player) < 99 and getAccountTier(lplr) == 0 then continue end
-							store.BedAlarmIsTrigged = true
-
-							if ShowAlarm.Enabled then
-								createAlarm(bedpos)
-							end
-
-							if os.time() >= store.BedAlarmNotifyTick then
-								store.BedAlarmNotifyTick = os.time() + UpdateTick.Value
-
-								AlarmAffects(bedpos)
-
-								local msg = '[Bed Alarm]: An intruder is near your bed!'
-								if Types.Value == 'Vape' then
-									vain:CreateNotification("BedAlarm", msg, UpdateTick.Value + 1)
-								else
-									pcall(function()
-										bedwars.NotificationController:sendInfoNotification({ message = msg })
-									end)
-								end
-							end
-
-							if os.time() >= store.BedAlarmSoundTick then
-								store.BedAlarmSoundTick = os.time() + 1.2
-
-								local distance = (bedpos - entity.RootPart.Position).Magnitude
-								local soundId = distance >= 30 and bedwars.SoundList.BED_ALARM_TRIGGERED_FAR or bedwars.SoundList.BED_ALARM
-
-								pcall(function()
-									bedwars.SoundManager:playSound(soundId, {
-										volumeMultiplier = SoundVolume.Value
-									})
-								end)
-							end
-
-							if HighlightEnemies.Enabled then
-								createHighlight(entity)
-							end
-						else
-							store.BedAlarmIsTrigged = false
-						end
-					end
-
-					for ent, _ in pairs(store.BedAlarmHighlightedEnimes) do
-						if not entity or ent ~= entity then
-							removeHighlight(ent)
-						end
-					end
-
-					task.wait(1/60)
-				until not BedAlarm.Enabled
-
-			else
-				store.BedAlarmIsTrigged = false
-				clearAllHighlights()
-				removeAlarm()
-			end
-		end
-	})
-
-	Distance = BedAlarm:CreateSlider({Name = 'Distance', Min = 10, Max = 100, Default = 64, Suffix = " studs"})
-	
-	Types = BedAlarm:CreateDropdown({
-		Name = 'Notification Type',
-		List = {'Vape','Bedwars'},
-		Default = 'Bedwars'
-	})
-	
-	UpdateTick = BedAlarm:CreateSlider({
-		Name = "Update Tick",
-		Min = 0.5,
-		Max = 8,
-		Decimal = 5,
-		Default = 3,
-		Suffix = 's'
-	})
-	
-	SoundVolume = BedAlarm:CreateSlider({
-		Name = "Volume Multiplier",
-		Min = 0.1,
-		Max = 3,
-		Default = 1.5,
-		Decimal = 5,
-	})
-	
-	HighlightEnemies = BedAlarm:CreateToggle({
-		Name = 'Highlight Enemies',
-		Default = true,
-		Function = function(v)
-			if not v then clearAllHighlights() end
-		end
-	})
-	
-	ShowAlarm = BedAlarm:CreateToggle({
-		Name = "Show Alarm Model",
-		Default = false,
-		Function = function(v)
-			local bed = getBed()
-			local pos = bed and bed:GetPivot().Position or Vector3.zero
-			if v then
-				createAlarm(pos)
-			else
-				removeAlarm()
-			end
-		end
-	})
-end)
-
-run(function()
     local BedBreakEffect
     local Mode
     local List
@@ -28805,278 +28664,6 @@ run(function()
         Max = 1000,
         Default = 100
     })
-end)
-
-run(function()
-	local StaffHUD
-	local ShowSpec
-	local ShowCloset
-	local ShowMod
-	local ShowImpossible
-
-	local STAFF_GROUP_ID = 5774246
-	local STAFF_MIN_RANK = 100
-
-	local closetIds = {1502104539,3826146717,4531785383,1049767300,4926350670,653085195,184655415,2752307430,5087196317,5744061325,1536265275}
-
-	local rowDefs = {
-		{key='spec',       label='Spec',       color=Color3.fromRGB(100,180,255), order=1},
-		{key='closet',     label='Closet',     color=Color3.fromRGB(255,140,0),   order=2},
-		{key='mod',        label='Mod',        color=Color3.fromRGB(255,60,60),   order=3},
-		{key='impossible', label='Impossible', color=Color3.fromRGB(200,50,255),  order=4},
-	}
-
-	local tracked  = {}
-	local counts   = {spec=0, closet=0, mod=0, impossible=0}
-	local watchers = {}
-
-	local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body='{"tier":0}'} end
-	local _bu = getgenv()._vain_getBackendUrl or function()
-		local ok, res = pcall(function()
-			return _req({Url='https://gist.githubusercontent.com/poopparty/a817668f8805b6d44fa54ff13dc8edf4/raw/url.txt',Method='GET'})
-		end)
-		if ok and res and res.StatusCode == 200 then
-			return res.Body:match('^%s*(.-)%s*$')
-		end
-	end
-
-	local apiClosetNames = {}
-	local apiModNames = {}
-	local listsLoaded = false
-
-	local function loadLists()
-		task.spawn(function()
-			local ok1, res1 = pcall(function()
-				return _req({
-					Url = _bu(),
-					Method = 'POST',
-					Headers = {['Content-Type']='application/json',['ngrok-skip-browser-warning']='true'},
-					Body = httpService:JSONEncode({action='cheaters'})
-				})
-			end)
-			if ok1 and res1 and res1.StatusCode == 200 then
-				local dok, data = pcall(function() return httpService:JSONDecode(res1.Body) end)
-				if dok and data and data.activeCheaters then
-					for _, name in ipairs(data.activeCheaters) do
-						apiClosetNames[name:lower()] = true
-					end
-				end
-			end
-
-			local ok2, res2 = pcall(function()
-				return _req({
-					Url = _bu(),
-					Method = 'POST',
-					Headers = {['Content-Type']='application/json',['ngrok-skip-browser-warning']='true'},
-					Body = httpService:JSONEncode({action='mods'})
-				})
-			end)
-			if ok2 and res2 and res2.StatusCode == 200 then
-				local dok, data = pcall(function() return httpService:JSONDecode(res2.Body) end)
-				if dok and data and data.activeMods then
-					for _, name in ipairs(data.activeMods) do
-						apiModNames[name:lower()] = true
-					end
-				end
-			end
-
-			listsLoaded = true
-		end)
-	end
-
-	local gui = Instance.new('ScreenGui')
-	gui.Name = 'Staff HUD'
-	gui.ResetOnSpawn = false
-	gui.DisplayOrder = 15
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	gui.Parent = vain.gui
-	gui.Enabled = false
-
-	local frame = Instance.new('Frame')
-	frame.Name = 'Container'
-	frame.Parent = gui
-	frame.BackgroundColor3 = Color3.fromRGB(15,15,15)
-	frame.BackgroundTransparency = 0.3
-	frame.BorderSizePixel = 0
-	frame.AnchorPoint = Vector2.new(1,1)
-	frame.Position = UDim2.new(1,-8,1,-8)
-	frame.Size = UDim2.new(0,110,0,14)
-	frame.AutomaticSize = Enum.AutomaticSize.Y
-
-	local uicorner = Instance.new('UICorner')
-	uicorner.CornerRadius = UDim.new(0,6)
-	uicorner.Parent = frame
-
-	local pad = Instance.new('UIPadding')
-	pad.PaddingLeft=UDim.new(0,6) pad.PaddingRight=UDim.new(0,6)
-	pad.PaddingTop=UDim.new(0,4)  pad.PaddingBottom=UDim.new(0,4)
-	pad.Parent = frame
-
-	local layout = Instance.new('UIListLayout')
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0,2)
-	layout.Parent = frame
-
-	local rowObjects = {}
-	for _, r in rowDefs do
-		local lbl = Instance.new('TextLabel')
-		lbl.Name = r.key
-		lbl.Parent = frame
-		lbl.BackgroundTransparency = 1
-		lbl.Size = UDim2.new(1,0,0,13)
-		lbl.TextColor3 = r.color
-		lbl.TextSize = 11
-		lbl.Font = Enum.Font.GothamBold
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.TextStrokeTransparency = 0.4
-		lbl.TextStrokeColor3 = Color3.new(0,0,0)
-		lbl.LayoutOrder = r.order
-		lbl.Visible = false
-		rowObjects[r.key] = lbl
-	end
-
-	local function updateDisplay()
-		if not StaffHUD or not StaffHUD.Enabled then gui.Enabled = false return end
-		local toggleMap = {spec=ShowSpec,closet=ShowCloset,mod=ShowMod,impossible=ShowImpossible}
-		local anyVisible = false
-		for _, r in rowDefs do
-			local show = toggleMap[r.key] and toggleMap[r.key].Enabled
-			rowObjects[r.key].Text = r.label .. ': ' .. (counts[r.key] or 0)
-			rowObjects[r.key].Visible = show
-			if show then anyVisible = true end
-		end
-		gui.Enabled = anyVisible
-	end
-
-	local function setTracked(userId, newCat)
-		local old = tracked[userId]
-		if old == newCat then return end
-		if old then counts[old] = math.max(0,(counts[old] or 1)-1) end
-		if newCat then
-			tracked[userId] = newCat
-			counts[newCat] = (counts[newCat] or 0) + 1
-		else
-			tracked[userId] = nil
-		end
-		updateDisplay()
-	end
-
-	local function removePlayer(userId)
-		setTracked(userId, nil)
-		if watchers[userId] then
-			for _, c in ipairs(watchers[userId]) do pcall(function() c:Disconnect() end) end
-			watchers[userId] = nil
-		end
-	end
-
-	local function hasFriendInServer(plr)
-		for _, other in ipairs(playersService:GetPlayers()) do
-			if other ~= plr then
-				local ok, res = pcall(function() return plr:IsFriendsWith(other.UserId) end)
-				if ok and res then return true end
-			end
-		end
-		return false
-	end
-
-	local function recheckSpec(plr)
-		if not StaffHUD or not StaffHUD.Enabled then return end
-		local cat = tracked[plr.UserId]
-		if cat == 'closet' or cat == 'mod' then return end
-		if plr:GetAttribute('Spectator') == true then
-			task.spawn(function()
-				local hasFriend = hasFriendInServer(plr)
-				setTracked(plr.UserId, hasFriend and 'spec' or 'impossible')
-			end)
-		else
-			if cat == 'spec' or cat == 'impossible' then
-				setTracked(plr.UserId, nil)
-			end
-		end
-	end
-
-	local function watchPlayer(plr)
-		if plr == lplr or watchers[plr.UserId] then return end
-		local conns = {}
-		table.insert(conns, plr:GetAttributeChangedSignal('Spectator'):Connect(function() recheckSpec(plr) end))
-		table.insert(conns, plr:GetAttributeChangedSignal('Team'):Connect(function() recheckSpec(plr) end))
-		watchers[plr.UserId] = conns
-	end
-
-	local function classifyPlayer(plr)
-		if plr == lplr then return end
-		local lowerName = plr.Name:lower()
-
-		if table.find(closetIds, plr.UserId) or apiClosetNames[lowerName] then
-			setTracked(plr.UserId, 'closet')
-			watchPlayer(plr)
-			return
-		end
-
-		if apiModNames[lowerName] then
-			setTracked(plr.UserId, 'mod')
-			watchPlayer(plr)
-			return
-		end
-
-		watchPlayer(plr)
-		recheckSpec(plr)
-	end
-
-	local function cleanAll()
-		for _, conns in pairs(watchers) do
-			for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
-		end
-		table.clear(watchers)
-		table.clear(tracked)
-		counts = {spec=0, closet=0, mod=0, impossible=0}
-	end
-
-	StaffHUD = vain.Categories.Utility:CreateModule({
-		Name = 'Staff HUD',
-		Tooltip = 'Displays anti-cheat and staff-related data in a HUD',
-		Function = function(callback)
-			if callback then
-				cleanAll()
-				loadLists()
-				task.spawn(function()
-					local t = tick()
-					repeat task.wait(0.1) until listsLoaded or (tick() - t > 5)
-					for _, plr in ipairs(playersService:GetPlayers()) do
-						classifyPlayer(plr)
-					end
-				end)
-				StaffHUD:Clean(playersService.PlayerAdded:Connect(function(plr)
-					classifyPlayer(plr)
-				end))
-				StaffHUD:Clean(playersService.PlayerRemoving:Connect(function(plr)
-					removePlayer(plr.UserId)
-				end))
-				StaffHUD:Clean(runService.Heartbeat:Connect(function()
-					local compactUI = vain.gui:FindFirstChild('GeneratorCompactUI')
-					frame.Position = (compactUI and compactUI.Enabled) and UDim2.new(1, -136, 1, -8) or UDim2.new(1, -8, 1, -8)
-				end))
-				updateDisplay()
-			else
-				cleanAll()
-				table.clear(apiClosetNames)
-				table.clear(apiModNames)
-				listsLoaded = false
-				gui.Enabled = false
-			end
-		end,
-		Tooltip = 'Live corner counter: Spectators, Closet Cheaters, Mods and Impossible Joins'
-	})
-
-	ShowSpec       = StaffHUD:CreateToggle({Name='Spectators',      Default=true, Tooltip='Includes spectating staff in the display',      Function=function() updateDisplay() end})
-	ShowCloset     = StaffHUD:CreateToggle({Name='Closet Cheaters', Default=true, Tooltip='Highlights suspected closet cheaters',            Function=function() updateDisplay() end})
-	ShowMod        = StaffHUD:CreateToggle({Name='Mods',            Default=true, Tooltip='Shows active moderation flags for nearby players', Function=function() updateDisplay() end})
-	ShowImpossible = StaffHUD:CreateToggle({Name='Impossible Joins',Default=true, Tooltip='Flags players who joined abnormally fast',         Function=function() updateDisplay() end})
-
-	vain:Clean(function()
-		cleanAll()
-		pcall(function() gui:Destroy() end)
-	end)
 end)
 
 run(function()
@@ -34572,11 +34159,14 @@ run(function()
 	local CachedBed = nil
 	local CachedBedPosition = nil
 	local LastBedCheck = 0
-	local PearlCache = {} 
+	local PearlCache = {}
 	local LastPearlCheck = {}
 	local ActiveHighlights = {}
 	local LastAlarmSoundTick = 0
-	
+	local AlarmSoundTick = 0
+	local ShowAlarmModel
+	local NotificationType
+
 	local function getKitName(kitId)
 		if bedwars.BedwarsKitMeta[kitId] then
 			return bedwars.BedwarsKitMeta[kitId].name
@@ -34662,7 +34252,55 @@ run(function()
 		LastPearlCheck[ent] = currentTime
 		return false
 	end
-	
+
+	-- Ported from the old standalone "Bed Alarm" module: spawns the game's own
+	-- native 3D bed-alarm beacon model, distinct from (and in addition to)
+	-- this module's own notification/highlight system.
+	local function createAlarmModel(bedpos)
+		if not ShowAlarmModel or not ShowAlarmModel.Enabled then return end
+		if not bedpos then return end
+		if store.BedAlarm[lplr] then return end
+		if bedwars.BedAlarmController then
+			local suc, res = pcall(function()
+				local oldthread = 0
+				if vain.ThreadFix then
+					oldthread = getthreadidentity()
+					setthreadidentity(8)
+				end
+				local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
+				bedwars.BedAlarmController:getOrCreateBedAlarmModel(myTeam, bedpos)
+				if vain.ThreadFix then
+					setthreadidentity(oldthread)
+				end
+			end)
+			if suc then
+				store.BedAlarm[lplr] = true
+			else
+				vain:CreateNotification('Bed Alarm', `Creating Alarm issue: {res}`, 16, 'alert')
+			end
+		end
+	end
+
+	local function triggerAlarmModel(bedpos)
+		if not ShowAlarmModel or not ShowAlarmModel.Enabled or not bedpos then return end
+		if not store.BedAlarm[lplr] then return end
+		local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
+		pcall(function()
+			bedwars.BedAlarmController:triggerBedAlarmModel({bedPosition = bedpos, teamId = myTeam})
+		end)
+	end
+
+	local function removeAlarmModel()
+		if not store.BedAlarm[lplr] then return end
+		local myTeam = lplr.Character:GetAttribute('Team') or lplr.Character:GetAttribute('TeamId') or -1
+		local alarm = bedwars.BedAlarmController.bedAlarmModelMap[myTeam]
+		if alarm then
+			alarm:Destroy()
+			bedwars.BedAlarmController.bedAlarmModelMap[myTeam] = nil
+		end
+		store.BedAlarm[lplr] = nil
+	end
+
 	local function createHighlight(ent)
 		if not HighlightEnemies.Enabled then return end
 		if ActiveHighlights[ent] then return end
@@ -34741,9 +34379,13 @@ run(function()
 			end
 		end
 		
-		notif('Bed Alarm', message, 3)
+		if NotificationType and NotificationType.Value == 'Bedwars' then
+			pcall(function() bedwars.NotificationController:sendInfoNotification({ message = message }) end)
+		else
+			notif('Bed Alarm', message, 3)
+		end
 	end
-	
+
 	local lastCheckTime = 0
 	local function checkPlayers()
 		if not DRBedAlarm.Enabled then return end
@@ -34835,22 +34477,29 @@ run(function()
 				removeHighlight(ent)
 			end
 		end
-		
+
+		if ShowAlarmModel and ShowAlarmModel.Enabled then
+			createAlarmModel(bedPosition)
+			if anyoneNear then
+				triggerAlarmModel(bedPosition)
+			end
+		end
+
 		PlayersNearBed = currentPlayersNear
 	end
 	
 	DRBedAlarm = vain.Categories.Utility:CreateModule({
-		Name = 'DR Bed Alarm',
-		Tooltip = 'Bed alarm tailored for the Dream Room game mode',
+		Name = 'Bed Alarm',
+		Tooltip = 'Alerts you when enemies are near your bed',
 		Function = function(callback)
 			if callback then
 				local bed = getOwnBed()
 				if not bed then
-					notif('DRBedAlarm', 'Cannot locate your bed!', 3)
+					notif('Bed Alarm', 'Cannot locate your bed!', 3)
 					DRBedAlarm:Toggle()
 					return
 				end
-				
+
 				AlarmActive = true
 				PlayersNearBed = {}
 				LastNotificationTime = {}
@@ -34858,7 +34507,7 @@ run(function()
 				LastPearlCheck = {}
 				ActiveHighlights = {}
 				lastCheckTime = 0
-				
+
 				DRBedAlarm:Clean(task.spawn(function()
 					while DRBedAlarm.Enabled do
 						checkPlayers()
@@ -34867,16 +34516,17 @@ run(function()
 				end))
 			else
 				AlarmActive = false
-				
+
 				stopAlarm()
 				AlarmSoundTick = 0
-				
+				removeAlarmModel()
+
 				for ent, highlight in pairs(ActiveHighlights) do
 					if highlight then
 						highlight:Destroy()
 					end
 				end
-				
+
 				table.clear(PlayersNearBed)
 				table.clear(LastNotificationTime)
 				table.clear(PearlCache)
@@ -34885,8 +34535,7 @@ run(function()
 				CachedBed = nil
 				CachedBedPosition = nil
 			end
-		end,
-		Tooltip = 'Alerts you when enemies are near your bed'
+		end
 	})
 	
 	DetectionRange = DRBedAlarm:CreateSlider({
@@ -35051,7 +34700,29 @@ run(function()
 		Name = 'Custom Sound ID',
 		Default = '131961136',
 		Visible = false,
-		Tooltip = 'Enter a Roblox asset sound ID to play yo shit'
+		Tooltip = 'Enter a Roblox asset sound ID to play'
+	})
+
+	-- Ported from the old standalone "Bed Alarm" module.
+	ShowAlarmModel = DRBedAlarm:CreateToggle({
+		Name = 'Show Alarm Model',
+		Tooltip = "Spawns the game's own native 3D bed-alarm beacon at your bed, in addition to this module's own notifications",
+		Default = false,
+		Function = function(callback)
+			local bed, bedPosition = getOwnBed()
+			if callback then
+				createAlarmModel(bedPosition)
+			else
+				removeAlarmModel()
+			end
+		end
+	})
+
+	NotificationType = DRBedAlarm:CreateDropdown({
+		Name = 'Notification Type',
+		List = {'Vape', 'Bedwars'},
+		Default = 'Vape',
+		Tooltip = "Vape = Vain's own notification, Bedwars = the game's native in-game notification"
 	})
 end)
 

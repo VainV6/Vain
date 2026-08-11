@@ -19,23 +19,23 @@ local mainapi = {
 		['Keybind fix'] = 'NEW',
 		['Killaura'] = 'UPD',
 		['Silent Aura'] = 'UPD',
-		['AutoBeekeeper'] = 'UPD',
+		['Auto Beekeeper'] = 'UPD',
 		['Name Tags'] = 'UPD',
-		['AutoBank'] = 'UPD',
-		['AutoMetal'] = 'UPD',
-		['AutoLani'] = 'UPD',
+		['Auto Bank'] = 'UPD',
+		['Auto Metal'] = 'UPD',
+		['Auto Lani'] = 'UPD',
 		['Auto Void Drop'] = 'UPD',
-		['FastDrop'] = 'UPD',
+		['Fast Drop'] = 'UPD',
 		['Generator ESP'] = 'UPD',
 		['Bed Alarm'] = 'UPD',
-		['PickupRange'] = 'UPD',
-		['ChestSteal'] = 'UPD',
-		['StaffDetector'] = 'UPD',
-		['AutoWhisper'] = 'UPD',
-		['AutoKaliyah'] = 'UPD',
-		['AutoCaitlyn'] = 'UPD',
-		['AutoHannah'] = 'UPD',
-		['AutoEmber'] = 'UPD',
+		['Pickup Range'] = 'UPD',
+		['Chest Steal'] = 'UPD',
+		['Staff Detector'] = 'UPD',
+		['Auto Whisper'] = 'UPD',
+		['Auto Kaliyah'] = 'UPD',
+		['Auto Caitlyn'] = 'UPD',
+		['Auto Hannah'] = 'UPD',
+		['Auto Ember'] = 'UPD',
 		['Fisherman Spy'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
@@ -5391,21 +5391,6 @@ end
 -- (old data just sits orphaned under the old key). Copies orphaned old-key
 -- data onto the new key, but only when the new key has no data yet, so this
 -- never clobbers a config someone has already redone under the new names.
-local LEGACY_MODULE_NAMES = {
-	['Auto Beekeeper'] = 'AutoBeekeeper',
-	['Auto Bank'] = 'AutoBank',
-	['Auto Metal'] = 'AutoMetal',
-	['Auto Lani'] = 'AutoLani',
-	['Fast Drop'] = 'FastDrop',
-	['Pickup Range'] = 'PickupRange',
-	['Chest Steal'] = 'ChestSteal',
-	['Staff Detector'] = 'StaffDetector',
-	['Auto Whisper'] = 'AutoWhisper',
-	['Auto Kaliyah'] = 'AutoKaliyah',
-	['Auto Caitlyn'] = 'AutoCaitlyn',
-	['Auto Hannah'] = 'AutoHannah',
-	['Auto Ember'] = 'AutoEmber',
-}
 -- Killaura kept its module name, but several of its options were also renamed
 -- (same Toggle/Slider type, same meaning) -- migrate those individually.
 local KILLAURA_LEGACY_OPTIONS = {
@@ -5415,13 +5400,6 @@ local KILLAURA_LEGACY_OPTIONS = {
 
 local function migrateLegacySaveData(savedata)
 	if not savedata or not savedata.Modules then return end
-
-	for oldName, newName in pairs(LEGACY_MODULE_NAMES) do
-		local old = savedata.Modules[oldName]
-		if old and not savedata.Modules[newName] then
-			savedata.Modules[newName] = old
-		end
-	end
 
 	local killaura = savedata.Modules.Killaura
 	if killaura and killaura.Options then
