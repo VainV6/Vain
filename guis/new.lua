@@ -16,7 +16,6 @@ local mainapi = {
 	-- until the next release edits this list. Set per update by hand (no GitHub
 	-- auto-diff). Keys are exact module names; value is 'NEW' or 'UPD'.
 	ModuleBadges = {
-		['Keybind fix'] = 'NEW',
 		['Killaura'] = 'UPD',
 		['Silent Aura'] = 'UPD',
 		['Auto Beekeeper'] = 'UPD',
