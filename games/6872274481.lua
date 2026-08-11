@@ -32496,6 +32496,7 @@ end)
 run(function()
 	local AutoHonor
 	local Delay
+	local SkipTie
 	local honoredusers = {}
 	local maxhonors = 2
 	
@@ -32550,7 +32551,10 @@ run(function()
 						honorPlayers()
 					end
 				end))
-				AutoHonor:Clean(vainEvents.MatchEndEvent.Event:Connect(function(...)
+				AutoHonor:Clean(vainEvents.MatchEndEvent.Event:Connect(function(winTable)
+					if SkipTie and SkipTie.Enabled and (type(winTable) ~= 'table' or not winTable.winningTeamId) then
+						return
+					end
 					honorPlayers()
 				end))
 			else
@@ -32565,6 +32569,11 @@ run(function()
 		Max = 1,
 		Decimal = 100,
 		Default = 0.05
+	})
+	SkipTie = AutoHonor:CreateToggle({
+		Name = 'Skip Tie Matches',
+		Default = true,
+		Tooltip = 'Does not attempt to give honor when the match ends without a winning team (e.g. a tie), since honoring is impossible then'
 	})
 end)
 

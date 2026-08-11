@@ -43,6 +43,8 @@ local mainapi = {
 		['Stream Remover'] = 'UPD',
 		['Fly'] = 'UPD',
 		['Infinite Jump'] = 'UPD',
+		['Projectile Aimbot'] = 'UPD',
+		['Auto Honor'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
 	-- Profiles window (each installs as a new, editable local profile). Populated by hand
