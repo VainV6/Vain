@@ -6191,6 +6191,8 @@ run(function()
     local MaxTargets
     local Mode
     local SwitchDelaySlider
+    local KitCategoryFilter
+    local KitCategoryList
     local Mouse
     local Swing
     local GUI
@@ -6871,6 +6873,16 @@ run(function()
                     end)
                 end
 
+                local function entityKitCategoryAllowed(ent)
+                    if not KitCategoryFilter or not KitCategoryFilter.Enabled then return true end
+                    if not ent.Player then return true end
+                    local kitId = ent.Player:GetAttribute('PlayingAsKits') or ent.Player:GetAttribute('PlayingAsKit')
+                    local meta = kitId and bedwars.BedwarsKitMeta and bedwars.BedwarsKitMeta[kitId]
+                    local class = meta and meta.kitClass
+                    if class == nil then return true end
+                    return table.find(KitCategoryList.ListEnabled, 'Class '..tostring(class)) ~= nil
+                end
+
                 local function gatherTargets(selfpos)
                         local walls = Targets.Walls.Enabled or nil
                         local players = Targets.Players.Enabled
@@ -6886,6 +6898,13 @@ run(function()
                             Limit = limit,
                             Sort = sort
                         })
+                        if KitCategoryFilter and KitCategoryFilter.Enabled then
+                            local filtered = {}
+                            for _, v in swingPlrs do
+                                if entityKitCategoryAllowed(v) then table.insert(filtered, v) end
+                            end
+                            swingPlrs = filtered
+                        end
                         if AttackRange.Value == SwingRange.Value then
                             return swingPlrs, swingPlrs
                         end
@@ -6898,6 +6917,13 @@ run(function()
                             Limit = limit,
                             Sort = sort
                         })
+                        if KitCategoryFilter and KitCategoryFilter.Enabled then
+                            local filtered = {}
+                            for _, v in attackPlrs do
+                                if entityKitCategoryAllowed(v) then table.insert(filtered, v) end
+                            end
+                            attackPlrs = filtered
+                        end
                         return swingPlrs, attackPlrs
                     end
 
@@ -7215,6 +7241,43 @@ run(function()
         Players = true,
         NPCs = true
     })
+
+    KitCategoryFilter = Killaura:CreateToggle({
+        Name = 'Target Kit Category',
+        Tooltip = 'Only attack players whose currently-equipped kit falls in a selected category',
+        Default = false,
+        Function = function(callback)
+            if KitCategoryList then KitCategoryList.Object.Visible = callback end
+        end
+    })
+    do
+        -- BedwarsKitMeta groups every kit under a numeric kitClass -- read
+        -- straight from the live game data instead of a hardcoded snapshot,
+        -- so this stays correct if the game adds/reshuffles kits.
+        local classes = {}
+        local seen = {}
+        if bedwars.BedwarsKitMeta then
+            for _, kitMeta in bedwars.BedwarsKitMeta do
+                local class = kitMeta.kitClass
+                if class ~= nil and not seen['Class '..tostring(class)] then
+                    seen['Class '..tostring(class)] = true
+                    table.insert(classes, class)
+                end
+            end
+        end
+        table.sort(classes)
+        local classNames = {}
+        for _, class in classes do
+            table.insert(classNames, 'Class '..tostring(class))
+        end
+        KitCategoryList = Killaura:CreateTextList({
+            Name = 'Kit Categories',
+            Tooltip = 'Which kit categories to attack while the filter above is on',
+            Default = classNames,
+            Darker = true,
+            Visible = false
+        })
+    end
 
     TargetPriority = Killaura:CreateDropdown({
         Name = 'Target Priority',
