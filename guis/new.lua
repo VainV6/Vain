@@ -4063,11 +4063,11 @@ function mainapi:CreateCategory(categorysettings)
 		function moduleapi:Lock(reason, tag)
 			tag = tag or 'MAINTENANCE'
 			moduleapi.Locked = true
-			modulebutton.Text = '            ' .. modulesettings.Name .. '  [' .. tag .. ']'
 			modulebutton.TextColor3 = color.Dark(uipallet.Text, 0.43)
 			bind.Visible = false
 			fav.Visible = false
 			dotsbutton.Visible = false
+			moduleapi:MarkBadge(tag)
 			addTooltip(modulebutton, '[Under maintenance] ' .. (reason or 'Not available right now.'))
 		end
 
@@ -4108,7 +4108,9 @@ function mainapi:CreateCategory(categorysettings)
 			badge.Position = UDim2.fromOffset(nameWidth + 8, 0)
 			badge.BackgroundTransparency = 1
 			badge.Text = tag
-			badge.TextColor3 = tag == 'NEW' and Color3.fromRGB(0, 221, 85) or Color3.fromRGB(31, 106, 255)
+			badge.TextColor3 = tag == 'NEW' and Color3.fromRGB(0, 221, 85)
+				or tag == 'UPD' and Color3.fromRGB(31, 106, 255)
+				or Color3.fromRGB(255, 149, 0)
 			badge.TextSize = 10
 			badge.FontFace = uipallet.Font
 			badge.TextXAlignment = Enum.TextXAlignment.Left

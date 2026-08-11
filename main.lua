@@ -194,10 +194,9 @@ local function applyBadges(changed)
 			mod.ExtraText = function() return t end
 			-- A separate label, never RichText on the button itself -- toggling
 			-- RichText on re-measures the button's leading spaces and shifts the
-			-- whole name to the right. Skip on a :Lock()ed module: its name text
-			-- already grew with the "[MAINTENANCE]" suffix, so the badge's measured
-			-- position can land past the button's fixed 220px width (into/past the
-			-- bind-icon area) -- and the tag already communicates its status anyway.
+			-- whole name to the right. Skip on a :Lock()ed module: Lock() already
+			-- calls MarkBadge with its own MAINTENANCE/WIP tag, so applying a
+			-- second NEW/UPD badge here would overlap it at the same position.
 			if mod.MarkBadge and not mod.Locked then
 				pcall(mod.MarkBadge, mod, tag)
 			end
