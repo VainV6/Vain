@@ -2885,16 +2885,15 @@ local lplr = playersService.LocalPlayer
 	end
 
 	-- ══════════════════════════════════════════════════════════════════════════
-	--  PARTY LIST  (show party / team groupings -- tab-list tags and/or an overlay)
+	--  PARTY LIST  (show real party groupings -- tab-list tags and/or an overlay)
 	-- ══════════════════════════════════════════════════════════════════════════
-	-- Groupings come from two sources, most-specific first:
-	--   1) MatchController.parties -- the real "who queued together" list, BUT the
-	--      server only replicates it (MatchPartiesUpdate) for some queues, so it is
-	--      often empty.
-	--   2) bedwars.Store:getState().Game.teams -- the team each player is on. This is
-	--      ALWAYS populated in a match (and during the ranked kit-ban draft), so it's
-	--      the reliable fallback. In ranked the team grouping IS the party grouping
-	--      you see in the draft.
+	-- Groupings come ONLY from MatchController.parties -- the real "who queued
+	-- together" party list. Deliberately does NOT fall back to BedWars' colour
+	-- teams: a team is just whoever the matchmaker put together, not a party, so
+	-- treating it as one would tag total strangers as "grouped". The server only
+	-- replicates real party data (MatchPartiesUpdate) for some queues, so this can
+	-- legitimately show 0 groups in a queue that doesn't send it -- that's the
+	-- game not sending the data, not a bug here.
 	-- One module, two display modes (tab-list tag and/or a floating overlay).
 	do
 		local PartyList
@@ -2917,8 +2916,9 @@ local lplr = playersService.LocalPlayer
 			return ok and c or nil
 		end
 
-		-- Returns a list of groups, each { members = { userId, ... } }. Tries real
-		-- parties first, then team membership. Groups are de-duped by member set.
+		-- Returns a list of groups, each a list of userIds. Real party data only --
+		-- see the block comment above for why team membership is deliberately not
+		-- used as a fallback. Groups are de-duped by member set.
 		local function collectGroups()
 			local groups, seen = {}, {}
 			local function add(members)
@@ -2935,7 +2935,6 @@ local lplr = playersService.LocalPlayer
 				if not seen[sig] then seen[sig] = true groups[#groups + 1] = ids end
 			end
 
-			-- 1) real parties
 			local mc = matchController()
 			if mc then
 				local parties = nil
@@ -2946,28 +2945,6 @@ local lplr = playersService.LocalPlayer
 				if type(parties) == 'table' and next(parties) then
 					for _, p in pairs(parties) do add(type(p) == 'table' and (p.members or p) or nil) end
 				end
-			end
-
-			-- 2) fallback: team membership via each player's own Team attribute --
-			-- the proven pattern used everywhere else in this file (isEnemy checks,
-			-- etc: player:GetAttribute('Team')). Game.teams entries only ever carry
-			-- .id/.name here (confirmed by every other working read of this same
-			-- table), never a .members list, so the old `t.members` check always
-			-- got nil and this fallback silently produced 0 groups every time.
-			if #groups == 0 then
-				pcall(function()
-					local byTeam = {}
-					for _, plr in playersService:GetPlayers() do
-						local teamId = plr:GetAttribute('Team')
-						if teamId ~= nil then
-							byTeam[teamId] = byTeam[teamId] or {}
-							table.insert(byTeam[teamId], plr.UserId)
-						end
-					end
-					for _, ids in pairs(byTeam) do
-						add(ids)
-					end
-				end)
 			end
 
 			return groups
@@ -3192,17 +3169,13 @@ local lplr = playersService.LocalPlayer
 
 		PartyList = vain.Categories.Render:CreateModule({
 			Name = 'Party List',
-			Tooltip = "Shows party/team groups as a coloured P# tag in the tab-list and an optional overlay. Uses real party data, else team membership. Same group = same colour.",
+			Tooltip = "Shows real party groups (who queued together) as a coloured P# tag in the tab-list and an optional overlay. Not team-based -- a colour team isn't a party. Same group = same colour.",
 			Function = function(callback)
 				if callback then
 					local _, shown = buildMap()
-					notif('Party List', ('%d group(s) shown -- source: %s'):format(
-						#shown,
-						(function()
-							local mc = matchController()
-							local p = mc and (function() local ok,v=pcall(function() return mc.parties end) return ok and v end)()
-							return (type(p) == 'table' and next(p)) and 'match parties' or 'teams'
-						end)()), 6, #shown > 0 and 'success' or 'warning')
+					notif('Party List', #shown > 0
+						and ('%d part%s shown'):format(#shown, #shown == 1 and 'y' or 'ies')
+						or 'No party data for this match (the game doesn\'t always send it)', 6, #shown > 0 and 'success' or 'warning')
 					task.spawn(function()
 						repeat
 							pcall(tick_)
