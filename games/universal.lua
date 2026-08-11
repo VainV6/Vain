@@ -8417,6 +8417,7 @@ run(function()
     })
     Value = Freecam:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Movement speed of the freecam',
     	Min = 1,
     	Max = 150,
     	Default = 50,
@@ -8478,6 +8479,7 @@ run(function()
     })
     Value = Gravity:CreateSlider({
     	Name = 'Gravity',
+    	Tooltip = 'Gravity value to apply',
     	Min = 0,
     	Max = 192,
     	Function = function(val)
@@ -8526,6 +8528,7 @@ run(function()
     })
     Extend = PromptExtender:CreateSlider({
     	Name = 'Extra activation range',
+    	Tooltip = 'Extra distance added to every proximity prompt\'s activation range',
     	Min = 0,
     	Max = 10,
     	Default = 5,
@@ -8641,6 +8644,7 @@ run(function()
     })
     List = Xray:CreateTextList({
     	Name = 'Part',
+    	Tooltip = 'Names of parts to exclude from the x-ray effect',
     	Function = function()
     		if Xray.Enabled then
     			Xray:Toggle()
