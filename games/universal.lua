@@ -10376,7 +10376,7 @@ run(function()
     outline.FillTransparency = 1
     outline.Parent = vain.gui
     CharacterOutline = vain.Legit:CreateModule({
-        Name    = 'CharacterOutline',
+        Name    = 'Character Outline',
         Tooltip = 'Adds a colored outline around your character.',
         Function = function(callback)
             if callback then

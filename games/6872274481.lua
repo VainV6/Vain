@@ -29282,7 +29282,7 @@ run(function()
 	end
 	
 	ShadowRemover = vain.Legit:CreateModule({
-		Name = 'ShadowRemover',
+		Name = 'Shadow Remover',
 		Tooltip = 'Removes shadow decals under player characters',
 		Function = function(callback)
 			if callback then
@@ -29327,7 +29327,7 @@ end)
 run(function()
 	local WhiteHits
 	WhiteHits = vain.Legit:CreateModule({
-		Name = "WhiteHits",
+		Name = "White Hits",
 		Tooltip = 'Replaces all hit particle effects with white particles',
 		Function = function(callback)
 			if callback then
@@ -29702,7 +29702,7 @@ run(function()
 	end
 	
 	RemoveNeon = vain.Legit:CreateModule({
-		Name = 'RemoveNeon',
+		Name = 'Remove Neon',
 		Tooltip = 'Removes neon glow effects from the map and players',
 		Function = function(callback)
 			if callback then
@@ -30786,7 +30786,7 @@ run(function()
 	local DisableStreamer
 	local old = {}
 	DisableStreamer = vain.Legit:CreateModule({
-		Name = 'DisableStreamer',
+		Name = 'Disable Streamer',
 		Tooltip = 'Disables streamer mode overlays and protections',
 		Function = function(callback)
 			if callback then
@@ -33455,7 +33455,7 @@ run(function()
 	end
 	
 	PotatoMode = vain.Legit:CreateModule({
-		Name = 'PotatoMode',
+		Name = 'Potato Mode',
 		Tooltip = 'Enables the PotatoMode module',
 		Function = function(callback)
 			if callback then
@@ -33532,7 +33532,7 @@ run(function()
 	local motionBlurConn = nil
 
 	MotionBlur = vain.Legit:CreateModule({
-		Name = 'MotionBlur',
+		Name = 'Motion Blur',
 		Tooltip = 'Adds a motion blur effect to camera movement',
 		Function = function(callback)
 			if callback then

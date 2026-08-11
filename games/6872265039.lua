@@ -263,13 +263,13 @@ run(function()
 	local AutoGamble
 	
 	AutoGamble = vain.Categories.Minigames:CreateModule({
-		Name = 'AutoGamble',
+		Name = 'Auto Gamble',
 		Function = function(callback)
 			if callback then
 				AutoGamble:Clean(bedwars.Client:GetNamespace('RewardCrate'):Get('CrateOpened'):Connect(function(data)
 					if data.openingPlayer == lplr then
 						local tab = bedwars.CrateItemMeta[data.reward.itemType] or {displayName = data.reward.itemType or 'unknown'}
-						notif('AutoGamble', 'Won '..tab.displayName, 5)
+						notif('Auto Gamble', 'Won '..tab.displayName, 5)
 					end
 				end))
 	
