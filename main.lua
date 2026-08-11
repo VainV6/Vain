@@ -314,21 +314,27 @@ shared.vain = vain
 if not shared.VainIndependent then
 	local universalLoader = loadstring(downloadFile('vain/games/universal.lua'), 'universal')
 	if universalLoader then universalLoader() end
-	if isfile('vain/games/'..game.PlaceId..'.lua') then
-		local gameLoader = loadstring(readfile('vain/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))
-		if gameLoader then gameLoader() end
-	else
-		-- Download the game file if this place has one. This must NOT be gated on
-		-- shared.VainDeveloper: doing so meant a dev/test inject with a wiped cache
-		-- never loaded the game modules at all (only universal), so most BedWars
-		-- modules silently vanished. Probe first so a 404 place is skipped quietly.
+	local gamePath = 'vain/games/'..game.PlaceId..'.lua'
+	-- Always route through downloadFile, even when the file's already cached --
+	-- a plain isfile+readfile shortcut here bypassed downloadFile's VAINEOF
+	-- self-heal check entirely, so a stale truncated copy from before that check
+	-- existed would keep loading forever on every inject, no matter how many
+	-- fixes landed upstream.
+	local hasGameFile = isfile(gamePath)
+	if not hasGameFile then
+		-- Probe first so a 404 place (no game-specific file) is skipped quietly
+		-- instead of downloadFile hard-erroring on every place without one. This
+		-- must NOT be gated on shared.VainDeveloper: doing so meant a dev/test
+		-- inject with a wiped cache never loaded the game modules at all (only
+		-- universal), so most BedWars modules silently vanished.
 		local suc, res = pcall(function()
 			return game:HttpGet('https://raw.githubusercontent.com/VainV6/Vain/'..readfile('vain/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
 		end)
-		if suc and res ~= '404: Not Found' and not isHttpError(res) then
-			local gameLoader = loadstring(downloadFile('vain/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))
-			if gameLoader then gameLoader() end
-		end
+		hasGameFile = suc and res ~= '404: Not Found' and not isHttpError(res)
+	end
+	if hasGameFile then
+		local gameLoader = loadstring(downloadFile(gamePath), tostring(game.PlaceId))
+		if gameLoader then gameLoader() end
 	end
 	finishLoading()
 else
