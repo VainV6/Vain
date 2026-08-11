@@ -8392,6 +8392,17 @@ run(function()
 	local wasHovering = false
 	local PAFOVCircle
 	local ProjectileAimbot
+	local PriorityMode
+	local lockedPATarget = nil
+	local function isPATargetValid(ent)
+		if not ent or not ent.RootPart or not ent.Character or not ent.Character.Parent then return false end
+		local hum = ent.Character:FindFirstChildOfClass('Humanoid')
+		if not hum or hum.Health <= 0 then return false end
+		if not entitylib.isAlive or not entitylib.character or not entitylib.character.RootPart then return false end
+		local dist = (ent.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
+		if dist > Range.Value then return false end
+		return true
+	end
 	local paFOVCircleDrawing = nil
 	local AutoCharge
 	local paFOVCircleConnection = nil
@@ -8608,14 +8619,23 @@ run(function()
 					if not wasHovering then lockedRandomPart = nil end
 					wasHovering = true
 					local entityPart = (TargetPart.Value == 'Head') and 'Head' or 'RootPart'
-					local plr = entitylib.EntityMouse({
-						Part = entityPart,
-						Range = FOV.Value,
-						Players = Targets.Players.Enabled,
-						NPCs = (Targets.NPCs and Targets.NPCs.Enabled) or false,
-						Wallcheck = Targets.Walls.Enabled,
-						Origin = originPos
-					})
+					local plr
+					if PriorityMode and PriorityMode.Enabled and lockedPATarget and isPATargetValid(lockedPATarget) then
+						plr = lockedPATarget
+					else
+						plr = entitylib.EntityMouse({
+							Part = entityPart,
+							Range = FOV.Value,
+							Players = Targets.Players.Enabled,
+							NPCs = (Targets.NPCs and Targets.NPCs.Enabled) or false,
+							Wallcheck = Targets.Walls.Enabled,
+							Origin = originPos,
+							Sort = sortmethods[SortMethod.Value]
+						})
+						if PriorityMode and PriorityMode.Enabled then
+							lockedPATarget = plr
+						end
+					end
 
 					if not plr then
 						wasHovering = false
@@ -8784,6 +8804,7 @@ run(function()
 				bedwars.ProjectileController.calculateImportantLaunchValues = old
 				wasHovering = false
 				lockedRandomPart = nil
+				lockedPATarget = nil
 				if cursorRenderConnection then
 					cursorRenderConnection:Disconnect()
 					cursorRenderConnection = nil
@@ -8821,6 +8842,12 @@ run(function()
 		List = {'Distance', 'Damage', 'Threat', 'Kit', 'Health', 'Angle', 'Cursor', 'Forest'},
 		Default = 'Distance',
 		Tooltip = 'Prioritize targets when multiple are in range'
+	})
+
+	PriorityMode = ProjectileAimbot:CreateToggle({
+		Name = 'Priority Mode',
+		Default = false,
+		Tooltip = 'Locks onto one target. Ignores closer/higher-priority targets until current is lost.'
 	})
 
 	DesirePAWorkMode = ProjectileAimbot:CreateDropdown({
