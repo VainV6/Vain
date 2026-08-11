@@ -424,25 +424,38 @@ end
 local function createVainCooldownBar(barColor)
 	local UI = Instance.new('Frame')
 	UI.Name = 'VainCooldownBar'
-	UI.Size = UDim2.new(1, -40, 0, 6)
-	UI.Position = UDim2.fromOffset(20, -46)
+	UI.AnchorPoint = Vector2.new(0.5, 1)
+	UI.Size = UDim2.new(0, 260, 0, 16)
+	UI.Position = UDim2.fromOffset(0, -46)
 	UI.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-	UI.BackgroundTransparency = 0.25
+	UI.BackgroundTransparency = 0.15
 	UI.BorderSizePixel = 0
 	UI.Visible = false
 	UI.Parent = vain.gui
 	local bgCorner = Instance.new('UICorner')
-	bgCorner.CornerRadius = UDim.new(1, 0)
+	bgCorner.CornerRadius = UDim.new(0, 6)
 	bgCorner.Parent = UI
+	local bgStroke = Instance.new('UIStroke')
+	bgStroke.Color = Color3.fromRGB(0, 0, 0)
+	bgStroke.Transparency = 0.35
+	bgStroke.Thickness = 1.5
+	bgStroke.Parent = UI
+
+	local fillPad = Instance.new('Frame')
+	fillPad.Name = 'FillPad'
+	fillPad.BackgroundTransparency = 1
+	fillPad.Size = UDim2.new(1, -4, 1, -4)
+	fillPad.Position = UDim2.fromOffset(2, 2)
+	fillPad.Parent = UI
 
 	local fill = Instance.new('Frame')
 	fill.Name = 'Fill'
 	fill.Size = UDim2.fromScale(1, 1)
 	fill.BackgroundColor3 = barColor or Color3.fromRGB(90, 170, 255)
 	fill.BorderSizePixel = 0
-	fill.Parent = UI
+	fill.Parent = fillPad
 	local fillCorner = Instance.new('UICorner')
-	fillCorner.CornerRadius = UDim.new(1, 0)
+	fillCorner.CornerRadius = UDim.new(0, 4)
 	fillCorner.Parent = fill
 
 	local lastPosUpdate = 0
@@ -455,11 +468,16 @@ local function createVainCooldownBar(barColor)
 		local hotbar = playerGui and playerGui:FindFirstChild('hotbar')
 		local container = hotbar and hotbar['1'] and hotbar['1']:FindFirstChild('HotbarHealthbarContainer')
 		if container then
-			UI.Position = UDim2.fromOffset(20, (container.AbsolutePosition.Y + guiService:GetGuiInset().Y) - 46)
+			local guiInset = guiService:GetGuiInset().Y
+			UI.Size = UDim2.new(0, math.max(container.AbsoluteSize.X * 0.62, 120), 0, 16)
+			UI.Position = UDim2.fromOffset(
+				container.AbsolutePosition.X + (container.AbsoluteSize.X / 2),
+				(container.AbsolutePosition.Y + guiInset) - 10
+			)
 		end
 	end
 	function api.SetProgress(frac)
-		fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
+		fill.Size = UDim2.new(math.clamp(frac, 0, 1), 0, 1, 0)
 	end
 	function api.Show() UI.Visible = true end
 	function api.Hide() UI.Visible = false end

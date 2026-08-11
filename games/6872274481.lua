@@ -270,25 +270,38 @@ end
 local function createVainCooldownBar(barColor)
 	local UI = Instance.new('Frame')
 	UI.Name = 'VainCooldownBar'
-	UI.Size = UDim2.new(1, -40, 0, 6)
-	UI.Position = UDim2.fromOffset(20, -46)
+	UI.AnchorPoint = Vector2.new(0.5, 1)
+	UI.Size = UDim2.new(0, 260, 0, 16)
+	UI.Position = UDim2.fromOffset(0, -46)
 	UI.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-	UI.BackgroundTransparency = 0.25
+	UI.BackgroundTransparency = 0.15
 	UI.BorderSizePixel = 0
 	UI.Visible = false
 	UI.Parent = vain.gui
 	local bgCorner = Instance.new('UICorner')
-	bgCorner.CornerRadius = UDim.new(1, 0)
+	bgCorner.CornerRadius = UDim.new(0, 6)
 	bgCorner.Parent = UI
+	local bgStroke = Instance.new('UIStroke')
+	bgStroke.Color = Color3.fromRGB(0, 0, 0)
+	bgStroke.Transparency = 0.35
+	bgStroke.Thickness = 1.5
+	bgStroke.Parent = UI
+
+	local fillPad = Instance.new('Frame')
+	fillPad.Name = 'FillPad'
+	fillPad.BackgroundTransparency = 1
+	fillPad.Size = UDim2.new(1, -4, 1, -4)
+	fillPad.Position = UDim2.fromOffset(2, 2)
+	fillPad.Parent = UI
 
 	local fill = Instance.new('Frame')
 	fill.Name = 'Fill'
 	fill.Size = UDim2.fromScale(1, 1)
 	fill.BackgroundColor3 = barColor or Color3.fromRGB(90, 170, 255)
 	fill.BorderSizePixel = 0
-	fill.Parent = UI
+	fill.Parent = fillPad
 	local fillCorner = Instance.new('UICorner')
-	fillCorner.CornerRadius = UDim.new(1, 0)
+	fillCorner.CornerRadius = UDim.new(0, 4)
 	fillCorner.Parent = fill
 
 	local lastPosUpdate = 0
@@ -301,11 +314,16 @@ local function createVainCooldownBar(barColor)
 		local hotbar = playerGui and playerGui:FindFirstChild('hotbar')
 		local container = hotbar and hotbar['1'] and hotbar['1']:FindFirstChild('HotbarHealthbarContainer')
 		if container then
-			UI.Position = UDim2.fromOffset(20, (container.AbsolutePosition.Y + guiService:GetGuiInset().Y) - 46)
+			local guiInset = guiService:GetGuiInset().Y
+			UI.Size = UDim2.new(0, math.max(container.AbsoluteSize.X * 0.62, 120), 0, 16)
+			UI.Position = UDim2.fromOffset(
+				container.AbsolutePosition.X + (container.AbsoluteSize.X / 2),
+				(container.AbsolutePosition.Y + guiInset) - 10
+			)
 		end
 	end
 	function api.SetProgress(frac)
-		fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
+		fill.Size = UDim2.new(math.clamp(frac, 0, 1), 0, 1, 0)
 	end
 	function api.Show() UI.Visible = true end
 	function api.Hide() UI.Visible = false end
@@ -8002,108 +8020,6 @@ run(function()
     end
 end)
 
-run(function()
-    local KeybindFix
-    local oldRegister
-    local oldSend
-    local remoteObj
-
-    -- BedWars' own settings menu registers keybinds with whatever it changed,
-    -- not the full set -- anything it omits gets treated as unset and silently
-    -- falls back to default, wiping every other custom bind. Backfill any
-    -- missing action from the currently-registered keybinds (the state right
-    -- before this call takes effect) so nothing not being written this call
-    -- can ever be lost.
-    local function keyName(k)
-        if k == nil then return nil end
-        return typeof(k) == 'EnumItem' and k.Name or tostring(k)
-    end
-
-    local function fillMissingActions(target)
-        if not target then return end
-        local ok, current = pcall(function() return bedwars.KeybindLoadController:getKeybinds() end)
-        local currentKb = ok and current and current.keyboard
-        if not currentKb then return end
-
-        for _, group in { 'controlActions', 'abilityActions' } do
-            target[group] = target[group] or {}
-            for action, key in (currentKb[group] or {}) do
-                if target[group][action] == nil then
-                    target[group][action] = key
-                end
-            end
-        end
-
-        -- BedWars also silently resets EVERY key back to default if two actions
-        -- end up sharing the same key -- assigning a key that's already used
-        -- elsewhere would otherwise let that happen. Find whichever action(s)
-        -- actually changed this call (their key differs from a moment ago) and
-        -- locally unbind any OTHER action still holding that same key, so the
-        -- payload we forward can never contain a duplicate.
-        local changed = {}
-        for _, group in { 'controlActions', 'abilityActions' } do
-            for action, key in target[group] do
-                local prevKey = currentKb[group] and currentKb[group][action]
-                local kn = keyName(key)
-                if kn ~= nil and kn ~= keyName(prevKey) then
-                    changed[kn] = { group = group, action = action }
-                end
-            end
-        end
-        for kn, winner in changed do
-            for _, group in { 'controlActions', 'abilityActions' } do
-                for action, key in target[group] do
-                    if not (group == winner.group and action == winner.action) and keyName(key) == kn then
-                        target[group][action] = nil
-                    end
-                end
-            end
-        end
-    end
-
-    KeybindFix = vain.Categories.Utility:CreateModule({
-        Name = 'Keybind fix',
-        Tooltip = "Prevent keybind reset",
-        Function = function(callback)
-            if callback then
-                local klc = bedwars.KeybindLoadController
-                if klc and not oldRegister then
-                    oldRegister = klc.registerKeybinds
-                    klc.registerKeybinds = function(self, data, ...)
-                        pcall(fillMissingActions, data and data.keyboard)
-                        return oldRegister(self, data, ...)
-                    end
-                end
-                local ok, remote = pcall(function() return bedwars.Client:Get('UpdateProfileDataKeybinds') end)
-                if ok and remote and not oldSend then
-                    remoteObj = remote
-                    oldSend = remote.SendToServer
-                    remote.SendToServer = function(self, payload, ...)
-                        pcall(fillMissingActions, payload and payload.keyboardKeybindDefinition)
-                        return oldSend(self, payload, ...)
-                    end
-                end
-            else
-                if bedwars.KeybindLoadController and oldRegister then
-                    bedwars.KeybindLoadController.registerKeybinds = oldRegister
-                end
-                oldRegister = nil
-                if remoteObj and oldSend then
-                    remoteObj.SendToServer = oldSend
-                end
-                oldSend = nil
-                remoteObj = nil
-            end
-        end,
-    })
-    -- CreateModule has no concept of a module-level "Default" (that's an
-    -- option-level thing) -- it's never referenced anywhere in CreateModule,
-    -- so the old `Default = true` field silently did nothing and the hooks
-    -- above never actually installed unless the player happened to click this
-    -- on manually. bedwars is fully populated by this point in the file (see
-    -- the setmetatable block far above), so it's safe to enable immediately.
-    KeybindFix:Toggle()
-end)
 
 
 

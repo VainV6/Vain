@@ -303,7 +303,7 @@ run(function()
     			until not Sprint.Enabled
     		end
     	end,
-    	Tooltip = 'Sets your sprinting to true.'
+    	Tooltip = 'Sets your sprinting to true'
     })
 end)
 
