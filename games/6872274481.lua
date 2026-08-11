@@ -25056,6 +25056,7 @@ run(function()
     local GoldNotify
     local DiamondNotify
     local EmeraldNotify
+    local Whitelist
 
     -- fishModel -> {word to announce, hex color for that word in the message}
     local SPECIAL_FISH = {
@@ -25063,6 +25064,15 @@ run(function()
     	fish_diamond = {'Diamond', '#5AD7FF'},
     	fish_emerald = {'Emerald', '#5AFF7A'},
     }
+
+    local function isWhitelisted(itemDisplay)
+    	if #Whitelist.ListEnabled <= 0 then return true end
+    	local lower = itemDisplay:lower()
+    	for _, v in Whitelist.ListEnabled do
+    		if v:lower() == lower then return true end
+    	end
+    	return false
+    end
 
     FishermanSpy = vain.Categories.Kits:CreateModule({
     	Name = 'Fisherman Spy',
@@ -25076,6 +25086,7 @@ run(function()
     					local text = {}
     					for _, v in data.dropData.drops do
     						local itemDisplay = bedwars.ItemMeta[v.itemType] and bedwars.ItemMeta[v.itemType].displayName or v.itemType
+    						if not isWhitelisted(itemDisplay) then continue end
     						-- FishCaught's own amount field reports one less than what's
     						-- actually received (4 diamonds caught shows as 3), so +1 here
     						-- to match reality.
@@ -25123,6 +25134,11 @@ run(function()
     	Name = 'Notify on Emerald',
     	Tooltip = 'Sends a dedicated notification whenever anyone catches an Emerald Fish',
     	Default = false
+    })
+    Whitelist = FishermanSpy:CreateTextList({
+    	Name = 'Loot Whitelist',
+    	Tooltip = 'Only shows catches of these items in the notification (leave empty to show all loot)',
+    	Placeholder = 'item name (e.g. Diamond)',
     })
 end)
 
