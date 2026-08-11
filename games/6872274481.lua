@@ -12714,6 +12714,7 @@ run(function()
     })
     Color = BulletTracers:CreateColorSlider({
     	Name = 'Tracer Color',
+    	Tooltip = 'Color of the bullet/projectile tracer line',
     	DefaultOpacity = 0.5
     })
     Thickness = BulletTracers:CreateSlider({
@@ -13308,6 +13309,7 @@ run(function()
     })
     Color = StorageESP:CreateColorSlider({
     	Name = 'Background Color',
+    	Tooltip = 'Color of the background box behind this ESP element',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -13360,10 +13362,10 @@ run(function()
     	Visible = false,
     })
     EmeraldThreshold = StorageESP:CreateSlider({
-    	Name = 'Emerald Alert', Min = 1, Max = 64, Default = 5, Suffix = 'emerald', Visible = false,
+    	Name = 'Emerald Alert', Tooltip = 'Alert threshold for stored emeralds', Min = 1, Max = 64, Default = 5, Suffix = 'emerald', Visible = false,
     })
     DiamondThreshold = StorageESP:CreateSlider({
-    	Name = 'Diamond Alert', Min = 1, Max = 64, Default = 5, Suffix = 'diamond', Visible = false,
+    	Name = 'Diamond Alert', Tooltip = 'Alert threshold for stored diamonds', Min = 1, Max = 64, Default = 5, Suffix = 'diamond', Visible = false,
     })
 end)
 
@@ -13496,6 +13498,7 @@ run(function()
     })
     Color = TrapESP:CreateColorSlider({
     	Name = 'Background Color',
+    	Tooltip = 'Color of the background box behind the trap icon',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -13565,6 +13568,7 @@ run(function()
     
     Color = ViewmodelVisuals:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Fill color applied to the viewmodel highlight',
         Default = Color3.new(1, 1, 1),
         Function = function(hue, sat, val, opacity)
             for _, v in Instances do
@@ -13575,6 +13579,7 @@ run(function()
     })
     StrokeColor = ViewmodelVisuals:CreateColorSlider({
         Name = 'Stroke Color',
+        Tooltip = 'Outline color applied to the viewmodel highlight',
         Default = Color3.new(),
         Function = function(hue, sat, val, opacity)
             for _, v in Instances do
@@ -15602,6 +15607,7 @@ run(function()
 
 	Range = PickupRange:CreateSlider({
 		Name = 'Range',
+		Tooltip = 'Distance items get picked up from',
 		Min = 1,
 		Max = 10,
 		Default = 10,
@@ -15611,6 +15617,7 @@ run(function()
 	})
 	Network = PickupRange:CreateToggle({
 		Name = 'Network TP',
+		Tooltip = 'Teleports your hitbox to the item server-side instead of just reaching for it visually',
 		Default = true
 	})
 	PickupDelay = PickupRange:CreateSlider({
@@ -15622,7 +15629,8 @@ run(function()
 		Suffix = 'ms'
 	})
 	Lower = PickupRange:CreateToggle({
-		Name = 'Feet Check'
+		Name = 'Feet Check',
+		Tooltip = 'Picks up items from foot level instead of your torso'
 	})
 	FastPickup = PickupRange:CreateToggle({
 		Name = 'Fast Pickup',
@@ -16266,11 +16274,11 @@ run(function()
 
 	Mode = StaffDetector:CreateDropdown({Name='Mode',List={'Uninject','Profile','Requeue','AutoConfig','Notify'},Function=function(val) if Profile.Object then Profile.Object.Visible = val=='Profile' end end})
 	AlertDuration = StaffDetector:CreateSlider({Name='Alert Duration',Min=5,Max=120,Default=60,Suffix='s',Tooltip='How long the alert notification stays on screen'})
-	Clans = StaffDetector:CreateToggle({Name='Blacklist clans',Default=true})
-	Party = StaffDetector:CreateToggle({Name='Leave party'})
+	Clans = StaffDetector:CreateToggle({Name='Blacklist clans',Tooltip='Also alerts for players in blacklisted clans',Default=true})
+	Party = StaffDetector:CreateToggle({Name='Leave party',Tooltip='Automatically leaves your party when a staff member is detected'})
 	ClosetDetect = StaffDetector:CreateToggle({Name='Known Cheaters',Default=true,Tooltip='Alerts when a known closet cheater joins your game'})
-	Profile = StaffDetector:CreateTextBox({Name='Profile',Default='default',Darker=true,Visible=false})
-	Users = StaffDetector:CreateTextList({Name='Users',Placeholder='player (userid)',Function=function() end})
+	Profile = StaffDetector:CreateTextBox({Name='Profile',Tooltip='Settings profile to switch to when Mode is set to Profile',Default='default',Darker=true,Visible=false})
+	Users = StaffDetector:CreateTextList({Name='Users',Tooltip='Specific players/user IDs to always treat as staff',Placeholder='player (userid)',Function=function() end})
 	task.defer(function() if Profile and Profile.Object then Profile.Object.Visible = (Mode.Value=='Profile') end end)
 
 	ShowSpec       = StaffDetector:CreateToggle({Name='HUD: Spectators',       Default=true, Tooltip='Includes spectating staff in the corner HUD',      Function=function() updateHud(getgenv()._aerov4_staffCounts) end})
@@ -17259,6 +17267,7 @@ run(function()
 	})
 	Range = ChestSteal:CreateSlider({
 		Name = 'Range',
+		Tooltip = 'Distance chests can be stolen from',
 		Min = 0,
 		Max = 18,
 		Default = 18,
@@ -17266,9 +17275,10 @@ run(function()
 			return val == 1 and 'stud' or 'studs'
 		end
 	})
-	Open = ChestSteal:CreateToggle({Name = 'GUI Check'})
+	Open = ChestSteal:CreateToggle({Name = 'GUI Check', Tooltip = 'Pauses stealing while a menu/inventory is open'})
 	Skywars = ChestSteal:CreateToggle({
 		Name = 'Only Skywars',
+		Tooltip = 'Only opens/steals from chests that spawned this round (SkyWars-style resets)',
 		Function = function()
 			if ChestSteal.Enabled then
 				ChestSteal:Toggle()
@@ -17284,6 +17294,7 @@ run(function()
 	})
 	DelayToggle = ChestSteal:CreateToggle({
 		Name = 'Delay',
+		Tooltip = 'Adds a delay between chest steals instead of stealing instantly',
 		Function = function(callback)
 			DelaySlider.Object.Visible = callback
 			if ChestSteal.Enabled then
@@ -17294,6 +17305,7 @@ run(function()
 	})
     DelaySlider = ChestSteal:CreateSlider({
         Name = 'Delay Time',
+        Tooltip = 'Delay between each chest steal',
         Min = 0.1,
         Max = 5,
         Default = 1,
