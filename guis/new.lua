@@ -4021,6 +4021,10 @@ function mainapi:CreateCategory(categorysettings)
 		end
 
 		function moduleapi:Toggle(multiple)
+			-- Locked modules must never actually enable, not even via a saved
+			-- "was enabled" profile restoring through Load() (which calls this
+			-- directly, bypassing the button's own click-handler Locked check).
+			if moduleapi.Locked then return end
 			if mainapi.ThreadFix then
 				setthreadidentity(8)
 			end
@@ -4045,14 +4049,20 @@ function mainapi:CreateCategory(categorysettings)
 		end
 
 		moduleapi.Locked = false
-		function moduleapi:Lock(reason)
+		-- Disables toggling and tags the button so players can see a module is
+		-- known-broken and being worked on, instead of silently not working.
+		-- `tag` lets a caller reuse this for other states (e.g. 'WIP' for an
+		-- unfinished feature) -- defaults to maintenance since that's the only
+		-- thing calling this right now.
+		function moduleapi:Lock(reason, tag)
+			tag = tag or 'MAINTENANCE'
 			moduleapi.Locked = true
-			modulebutton.Text = '            ' .. modulesettings.Name .. '  [WIP]'
+			modulebutton.Text = '            ' .. modulesettings.Name .. '  [' .. tag .. ']'
 			modulebutton.TextColor3 = color.Dark(uipallet.Text, 0.43)
 			bind.Visible = false
 			fav.Visible = false
 			dotsbutton.Visible = false
-			addTooltip(modulebutton, '[Work In Progress] ' .. (reason or 'Not available right now.'))
+			addTooltip(modulebutton, '[Under maintenance] ' .. (reason or 'Not available right now.'))
 		end
 
 		-- Gold "PREMIUM" badge after the name. Purely cosmetic (does NOT block

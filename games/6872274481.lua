@@ -3092,6 +3092,7 @@ local lplr = playersService.LocalPlayer
 				end
 			end
 		})
+		PartyList:Lock('Being debugged, temporarily disabled.')
 		ShowTablist = PartyList:CreateToggle({
 			Name = 'Tab-list Tags', Default = true,
 			Tooltip = 'Show the coloured party tag next to each player\'s tab-list name.',
@@ -4121,6 +4122,7 @@ run(function()
 			end)
 		end
 	})
+	SilentAura:Lock('Being reworked, temporarily disabled.')
 
 	SilentTargets = SilentAura:CreateTargets({
 		Players = true,
@@ -9438,7 +9440,8 @@ run(function()
             end
         end
     })
-    
+    ArmorHighlight:Lock('Being reworked, temporarily disabled.')
+
     for i,v in Properties do
         local name = i
     
@@ -16150,6 +16153,7 @@ run(function()
         end,
         Tooltip = 'Lets you buy things like armor early.'
     })
+    ShopTierBypass:Lock('Temporarily disabled.')
 end)
 
 run(function()
