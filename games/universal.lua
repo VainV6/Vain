@@ -7373,6 +7373,7 @@ run(function()
     })
     FontOption = Waypoints:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the waypoint labels',
     	Blacklist = 'Arial',
     	Function = function()
     		if Waypoints.Enabled then
@@ -7383,6 +7384,7 @@ run(function()
     })
     List = Waypoints:CreateTextList({
     	Name = 'Points',
+    	Tooltip = 'Waypoints to render, formatted as x, y, z/name',
     	Placeholder = 'x, y, z/name',
     	Function = function()
     		if Waypoints.Enabled then
@@ -7393,6 +7395,7 @@ run(function()
     })
     Waypoints:CreateButton({
     	Name = 'Add current position',
+    	Tooltip = 'Adds your current position as a new waypoint',
     	Function = function()
     		if entitylib.isAlive then
     			local pos = entitylib.character.RootPart.Position // 1
@@ -7402,6 +7405,7 @@ run(function()
     })
     Color = Waypoints:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Text color of the waypoint labels',
     	Function = function(hue, sat, val)
     		for _, v in WaypointFolder:GetChildren() do
     			v.TextLabel.TextColor3 = Color3.fromHSV(hue, sat, val)
@@ -7410,6 +7414,7 @@ run(function()
     })
     Scale = Waypoints:CreateSlider({
     	Name = 'Scale',
+    	Tooltip = 'Size of the waypoint labels',
     	Function = function()
     		if Waypoints.Enabled then
     			Waypoints:Toggle()
@@ -7423,6 +7428,7 @@ run(function()
     })
     Background = Waypoints:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the waypoint label background',
     	Function = function()
     		if Waypoints.Enabled then
     			Waypoints:Toggle()
@@ -7458,6 +7464,7 @@ run(function()
 
     Distance = ZoomUnlocker:CreateSlider({
     	Name = 'Distance',
+    	Tooltip = 'Maximum camera zoom distance',
     	Min = (lplr.CameraMinZoomDistance or 0),
     	Max = 300,
     	Decimal = 5,
@@ -7548,6 +7555,7 @@ run(function()
     end
     Priority = AnimationPlayer:CreateDropdown({
     	Name = 'Priority',
+    	Tooltip = 'Animation priority, higher overrides lower priority animations',
     	List = prio,
     	Function = function(val)
     		if anim then
@@ -7557,6 +7565,7 @@ run(function()
     })
     Speed = AnimationPlayer:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Playback speed of the animation',
     	Function = function(val)
     		if anim then
     			anim:AdjustSpeed(val)
