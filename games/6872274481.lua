@@ -6213,6 +6213,35 @@ run(function()
     local SwitchDelaySlider
     local KitCategoryFilter
     local KitCategoryList
+    -- getBedwarsClassMeta(classId).display -> "Movement"/"Fighter"/... (same
+    -- resolver Inventory ESP uses). Resolve the module once and cache names so
+    -- a class with no real display name still falls back to "Class N" instead
+    -- of showing nothing.
+    local classMetaFn
+    local function getClassMeta()
+        if classMetaFn ~= nil then return classMetaFn or nil end
+        local ok, mod = pcall(function()
+            return require(replicatedStorage.TS.games.bedwars.kit.class['bedwars-class-meta']).getBedwarsClassMeta
+        end)
+        classMetaFn = (ok and mod) or false
+        return classMetaFn or nil
+    end
+    local classNameCache = {}
+    local function classDisplay(classId)
+        if classId == nil then return nil end
+        if classNameCache[classId] ~= nil then return classNameCache[classId] or nil end
+        local name
+        local fn = getClassMeta()
+        if fn then
+            pcall(function()
+                local meta = fn(classId)
+                if meta and meta.display then name = tostring(meta.display) end
+            end)
+        end
+        name = name or ('Class '..tostring(classId))
+        classNameCache[classId] = name
+        return name
+    end
     local Mouse
     local Swing
     local GUI
@@ -6900,7 +6929,7 @@ run(function()
                     local meta = kitId and bedwars.BedwarsKitMeta and bedwars.BedwarsKitMeta[kitId]
                     local class = meta and meta.kitClass
                     if class == nil then return true end
-                    return table.find(KitCategoryList.ListEnabled, 'Class '..tostring(class)) ~= nil
+                    return table.find(KitCategoryList.ListEnabled, classDisplay(class)) ~= nil
                 end
 
                 local function gatherTargets(selfpos)
@@ -7279,8 +7308,8 @@ run(function()
         if bedwars.BedwarsKitMeta then
             for _, kitMeta in bedwars.BedwarsKitMeta do
                 local class = kitMeta.kitClass
-                if class ~= nil and not seen['Class '..tostring(class)] then
-                    seen['Class '..tostring(class)] = true
+                if class ~= nil and not seen[class] then
+                    seen[class] = true
                     table.insert(classes, class)
                 end
             end
@@ -7288,7 +7317,7 @@ run(function()
         table.sort(classes)
         local classNames = {}
         for _, class in classes do
-            table.insert(classNames, 'Class '..tostring(class))
+            table.insert(classNames, classDisplay(class))
         end
         KitCategoryList = Killaura:CreateTextList({
             Name = 'Kit Categories',
