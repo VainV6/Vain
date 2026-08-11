@@ -9156,6 +9156,7 @@ run(function()
     end
     Material = ChinaHat:CreateDropdown({
     	Name = 'Material',
+    	Tooltip = 'Material of the china hat',
     	List = materials,
     	Function = function(val)
     		if hat then
@@ -9165,6 +9166,7 @@ run(function()
     })
     Color = ChinaHat:CreateColorSlider({
     	Name = 'Hat Color',
+    	Tooltip = 'Color of the china hat',
     	DefaultOpacity = 0.7,
     	Function = function(hue, sat, val, opacity)
     		if hat then
@@ -9196,6 +9198,7 @@ run(function()
     })
     Clock:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the clock text',
     	Blacklist = 'Gotham',
     	Function = function(val)
     		label.FontFace = val
@@ -9203,6 +9206,7 @@ run(function()
     })
     Clock:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Background color of the clock',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -9212,6 +9216,7 @@ run(function()
     })
     TwentyFourHour = Clock:CreateToggle({
     	Name = '24 Hour Clock',
+    	Tooltip = 'Shows time in 24 hour format instead of AM/PM',
     })
     label = Instance.new('TextLabel')
     label.Size = UDim2.new(0, 100, 0, 41)
@@ -9262,6 +9267,7 @@ run(function()
     })
     Coords:CreateToggle({
     	Name = 'Render Background',
+    	Tooltip = 'Shows a background box behind the coordinates',
     	Default = true,
     	Function = function(callback)
     		if gui then
