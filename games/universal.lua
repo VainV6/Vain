@@ -7718,6 +7718,7 @@ run(function()
     })
     AutoSendLength = Blink:CreateSlider({
     	Name = 'Send threshold',
+    	Tooltip = 'Interval between automatically sent packets',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -7803,13 +7804,15 @@ run(function()
     	end,
     	Tooltip = 'Automatically types in chat',
     })
-    Lines = ChatSpammer:CreateTextList({ Name = 'Lines' })
+    Lines = ChatSpammer:CreateTextList({ Name = 'Lines', Tooltip = 'Messages to send in chat' })
     Mode = ChatSpammer:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Random - Sends a random line each time\nOrder - Cycles through lines in order',
     	List = { 'Random', 'Order' },
     })
     Delay = ChatSpammer:CreateSlider({
     	Name = 'Delay',
+    	Tooltip = 'Delay between each sent message',
     	Min = 0.1,
     	Max = 10,
     	Default = 1,
@@ -7820,6 +7823,7 @@ run(function()
     })
     Hide = ChatSpammer:CreateToggle({
     	Name = 'Hide Flood Message',
+    	Tooltip = 'Hides the "you must wait before sending another message" chat flood warning',
     	Default = true,
     	Function = function()
     		if ChatSpammer.Enabled then
@@ -8071,6 +8075,7 @@ run(function()
     })
     ServerHop:CreateButton({
     	Name = 'Rejoin Previous Server',
+    	Tooltip = 'Rejoins the server you were on before your last server hop',
     	Function = function()
     		notif(
     			'ServerHop',
@@ -8210,6 +8215,7 @@ run(function()
     })
     Mode = StaffDetector:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Uninject - Uninjects the client\nServerHop - Leaves for another server\nProfile - Switches to a safe config profile\nAutoConfig - Disables all currently enabled modules\nNotify - Only sends a notification',
     	List = { 'Uninject', 'ServerHop', 'Profile', 'AutoConfig', 'Notify' },
     	Function = function(val)
     		if Profile.Object then
@@ -8225,6 +8231,7 @@ run(function()
     })
     Users = StaffDetector:CreateTextList({
     	Name = 'Users',
+    	Tooltip = 'Additional user IDs to always treat as staff',
     	Placeholder = 'player (userid)',
     })
     Group = StaffDetector:CreateTextBox({
@@ -8276,6 +8283,7 @@ run(function()
     end
     State = StateSpoofer:CreateDropdown({
     	Name = 'Humanoid State',
+    	Tooltip = 'Humanoid state reported to the server',
     	List = states,
     })
 end)
@@ -8326,6 +8334,7 @@ run(function()
 
     Duration = PromptDuration:CreateSlider({
     	Name = 'Duration',
+    	Tooltip = 'How long a prompt must be held before it auto-fires',
     	Min = 0,
     	Max = 2,
     	Default = 0,
