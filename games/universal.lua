@@ -3502,6 +3502,7 @@ run(function()
 	})
 	SwingRange = Killaura:CreateSlider({
 		Name = 'Swing range',
+		Tooltip = 'Maximum distance to swing your tool at a target',
 		Min = 1,
 		Max = 30,
 		Default = 13,
@@ -3511,6 +3512,7 @@ run(function()
 	})
 	AttackRange = Killaura:CreateSlider({
 		Name = 'Attack range',
+		Tooltip = 'Maximum distance to register a hit on a target',
 		Min = 1,
 		Max = 30,
 		Default = 13,
@@ -3520,20 +3522,23 @@ run(function()
 	})
 	AngleSlider = Killaura:CreateSlider({
 		Name = 'Max angle',
+		Tooltip = 'Maximum angle from your view direction a target can be attacked at',
 		Min = 1,
 		Max = 360,
 		Default = 90
 	})
 	Max = Killaura:CreateSlider({
 		Name = 'Max targets',
+		Tooltip = 'Maximum number of targets to attack at once',
 		Min = 1,
 		Max = 10,
 		Default = 10
 	})
-	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
-	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
+	Mouse = Killaura:CreateToggle({Name = 'Require mouse down', Tooltip = 'Only attacks while holding left click'})
+	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only', Tooltip = 'Only attacks when your equipped sword is lunging'})
 	Killaura:CreateToggle({
 		Name = 'Show target',
+		Tooltip = 'Draws a box on targets being attacked',
 		Function = function(callback)
 			BoxSwingColor.Object.Visible = callback
 			BoxAttackColor.Object.Visible = callback
@@ -3558,6 +3563,7 @@ run(function()
 	})
 	BoxSwingColor = Killaura:CreateColorSlider({
 		Name = 'Target Color',
+		Tooltip = 'Box color for targets within swing range',
 		Darker = true,
 		DefaultHue = 0.6,
 		DefaultOpacity = 0.5,
@@ -3565,12 +3571,14 @@ run(function()
 	})
 	BoxAttackColor = Killaura:CreateColorSlider({
 		Name = 'Attack Color',
+		Tooltip = 'Box color for targets currently being attacked',
 		Darker = true,
 		DefaultOpacity = 0.5,
 		Visible = false
 	})
 	Killaura:CreateToggle({
 		Name = 'Target particles',
+		Tooltip = 'Renders particle effects on attacked targets',
 		Function = function(callback)
 			ParticleTexture.Object.Visible = callback
 			ParticleColor1.Object.Visible = callback
@@ -3624,6 +3632,7 @@ run(function()
 	})
 	ParticleColor1 = Killaura:CreateColorSlider({
 		Name = 'Color Begin',
+		Tooltip = 'Starting color of the target particle gradient',
 		Function = function(hue, sat, val)
 			for _, v in Particles do
 				v.ParticleEmitter.Color = ColorSequence.new({
@@ -3637,6 +3646,7 @@ run(function()
 	})
 	ParticleColor2 = Killaura:CreateColorSlider({
 		Name = 'Color End',
+		Tooltip = 'Ending color of the target particle gradient',
 		Function = function(hue, sat, val)
 			for _, v in Particles do
 				v.ParticleEmitter.Color = ColorSequence.new({
@@ -3650,6 +3660,7 @@ run(function()
 	})
 	ParticleSize = Killaura:CreateSlider({
 		Name = 'Size',
+		Tooltip = 'Size of the target particles',
 		Min = 0,
 		Max = 1,
 		Default = 0.2,
@@ -3662,7 +3673,7 @@ run(function()
 		Darker = true,
 		Visible = false
 	})
-	Face = Killaura:CreateToggle({Name = 'Face target'})
+	Face = Killaura:CreateToggle({Name = 'Face target', Tooltip = 'Rotates your character to face the closest attacked target'})
 end)
 
 run(function()
@@ -3715,6 +3726,7 @@ run(function()
     })
     Value = LongJump:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Horizontal speed applied while jumping',
     	Min = 1,
     	Max = 150,
     	Default = 50,
@@ -3724,6 +3736,7 @@ run(function()
     })
     AutoDisable = LongJump:CreateToggle({
     	Name = 'Auto Disable',
+    	Tooltip = 'Automatically disables the module after landing',
     	Default = true,
     })
 end)
@@ -3822,10 +3835,12 @@ run(function()
     })
     Mode = MouseTP:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Mouse - Teleports to where your mouse is aimed\nPlayer - Teleports to the closest player\nWaypoint - Teleports to the closest waypoint under your mouse',
     	List = { 'Mouse', 'Player', 'Waypoint' },
     })
     MovementMode = MouseTP:CreateDropdown({
     	Name = 'Movement',
+    	Tooltip = 'CFrame - Instantly teleports\nMotor - Smoothly moves via motor\nLerp - Gradually moves towards the position',
     	List = { 'CFrame', 'Motor', 'Lerp' },
     	Function = function(val)
     		Length.Object.Visible = val == 'Lerp'
@@ -3834,6 +3849,7 @@ run(function()
     })
     Length = MouseTP:CreateSlider({
     	Name = 'Length',
+    	Tooltip = 'Distance moved per lerp step',
     	Min = 0,
     	Max = 150,
     	Darker = true,
@@ -3844,6 +3860,7 @@ run(function()
     })
     Delay = MouseTP:CreateSlider({
     	Name = 'Delay',
+    	Tooltip = 'Delay between each lerp step',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -3997,6 +4014,7 @@ run(function()
     })
     StudLimit = Phase:CreateSlider({
     	Name = 'Wall Size',
+    	Tooltip = 'Maximum wall thickness that can be phased through',
     	Min = 1,
     	Max = 20,
     	Default = 5,
@@ -4112,6 +4130,7 @@ run(function()
     	}),
     	Value = Speed:CreateSlider({
     		Name = 'Speed',
+    		Tooltip = 'Horizontal movement speed',
     		Min = 1,
     		Max = 150,
     		Default = 50,
@@ -4121,6 +4140,7 @@ run(function()
     	}),
     	TPFrequency = Speed:CreateSlider({
     		Name = 'TP Frequency',
+    		Tooltip = 'How often to teleport when using TP speed mode',
     		Min = 0,
     		Max = 1,
     		Decimal = 100,
@@ -4132,6 +4152,7 @@ run(function()
     	}),
     	PulseLength = Speed:CreateSlider({
     		Name = 'Pulse Length',
+    		Tooltip = 'Duration of each speed burst when using Pulse mode',
     		Min = 0,
     		Max = 1,
     		Decimal = 100,
@@ -4143,6 +4164,7 @@ run(function()
     	}),
     	PulseDelay = Speed:CreateSlider({
     		Name = 'Pulse Delay',
+    		Tooltip = 'Delay between speed bursts when using Pulse mode',
     		Min = 0,
     		Max = 1,
     		Decimal = 100,
@@ -4154,6 +4176,7 @@ run(function()
     	}),
     	WallCheck = Speed:CreateToggle({
     		Name = 'Wall Check',
+    		Tooltip = 'Raycasts to avoid moving through walls when using CFrame/TP modes',
     		Default = true,
     		Darker = true,
     		Visible = false,
@@ -4164,6 +4187,7 @@ run(function()
     Options.rayCheck.RespectCanCollide = true
     CustomProperties = Speed:CreateToggle({
     	Name = 'Custom Properties',
+    	Tooltip = 'Adjusts friction/movement physics properties while active',
     	Function = function()
     		if Speed.Enabled then
     			Speed:Toggle()
@@ -4174,6 +4198,7 @@ run(function()
     })
     AutoJump = Speed:CreateToggle({
     	Name = 'AutoJump',
+    	Tooltip = 'Automatically jumps while moving',
     	Function = function(callback)
     		AutoJumpCustom.Object.Visible = callback
     	end,
@@ -4189,6 +4214,7 @@ run(function()
     })
     AutoJumpValue = Speed:CreateSlider({
     	Name = 'Jump Power',
+    	Tooltip = 'Vertical velocity applied on each auto jump',
     	Min = 1,
     	Max = 50,
     	Default = 30,
@@ -4296,6 +4322,7 @@ run(function()
     })
     Value = Spider:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Climbing speed up walls',
     	Min = 0,
     	Max = 100,
     	Default = 30,
@@ -4306,6 +4333,7 @@ run(function()
     })
     State = Spider:CreateToggle({
     	Name = 'Climb State',
+    	Tooltip = 'Forces the Climbing humanoid state while spidering',
     	Darker = true,
     })
 end)
@@ -4366,6 +4394,7 @@ run(function()
     })
     Mode = SpinBot:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Method used to spin your character',
     	List = { 'CFrame', 'RotVelocity', 'BodyMover' },
     	Function = function(val)
     		if AngularVelocity then
@@ -4377,16 +4406,18 @@ run(function()
     })
     Value = SpinBot:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Rotation speed',
     	Min = 1,
     	Max = 100,
     	Default = 40,
     })
-    XToggle = SpinBot:CreateToggle({ Name = 'Spin X' })
+    XToggle = SpinBot:CreateToggle({ Name = 'Spin X', Tooltip = 'Spins around the X axis' })
     YToggle = SpinBot:CreateToggle({
     	Name = 'Spin Y',
+    	Tooltip = 'Spins around the Y axis',
     	Default = true,
     })
-    ZToggle = SpinBot:CreateToggle({ Name = 'Spin Z' })
+    ZToggle = SpinBot:CreateToggle({ Name = 'Spin Z', Tooltip = 'Spins around the Z axis' })
 end)
 
 run(function()
