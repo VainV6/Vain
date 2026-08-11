@@ -192,10 +192,11 @@ local function applyBadges(changed)
 		if mod then
 			local t = tag
 			mod.ExtraText = function() return t end
-			if mod.Object then
-				mod.Object.RichText = true
-				local tagColor = tag == 'NEW' and '#00DD55' or '#1F6AFF'
-				mod.Object.Text = mod.Object.Text.." <font color='"..tagColor.."' size='10'><b>"..tag.."</b></font>"
+			-- A separate label, never RichText on the button itself -- toggling
+			-- RichText on re-measures the button's leading spaces and shifts the
+			-- whole name to the right (worst on a module that's also :Lock()ed).
+			if mod.MarkBadge then
+				pcall(mod.MarkBadge, mod, tag)
 			end
 		end
 	end

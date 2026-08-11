@@ -4094,6 +4094,26 @@ function mainapi:CreateCategory(categorysettings)
 			premium.Parent = modulebutton
 		end
 
+		-- NEW/UPD badge after the name. Same reasoning as MarkPremium above: a
+		-- separate label, never RichText on the button itself, or the 12 leading
+		-- spaces re-measure and the whole name shifts right (the reported offset --
+		-- hit hardest on a module that's ALSO :Lock()ed, since that resets Text).
+		function moduleapi:MarkBadge(tag)
+			local nameWidth = getfontsize(modulebutton.Text, 14, uipallet.Font).X
+			local badge = Instance.new('TextLabel')
+			badge.Name = 'Badge'
+			badge.AutomaticSize = Enum.AutomaticSize.X
+			badge.Size = UDim2.fromOffset(0, 40)
+			badge.Position = UDim2.fromOffset(nameWidth + 8, 0)
+			badge.BackgroundTransparency = 1
+			badge.Text = tag
+			badge.TextColor3 = tag == 'NEW' and Color3.fromRGB(0, 221, 85) or Color3.fromRGB(31, 106, 255)
+			badge.TextSize = 10
+			badge.FontFace = uipallet.Font
+			badge.TextXAlignment = Enum.TextXAlignment.Left
+			badge.Parent = modulebutton
+		end
+
 		for i, v in components do
 			moduleapi['Create'..i] = function(_, optionsettings)
 				return v(optionsettings, modulechildren, moduleapi)
