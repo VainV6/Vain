@@ -840,30 +840,64 @@ pcall(function()
                     Controller = 'vain/assets/new/devicecontroller.png',
                     PC = 'vain/assets/new/devicepc.png',
                 }
-                local deviceLabel = Instance.new('ImageLabel')
-                deviceLabel.Name = 'DeviceIcon'
-                deviceLabel.Size = udim2fromOffset(22, 22)
-                deviceLabel.Position = udim2fromOffset(size.X + 10, -1)
-                deviceLabel.BackgroundTransparency = 1
-                deviceLabel.BorderSizePixel = 0
-                deviceLabel.Parent = nametag
+                local deviceShort = { Mobile = 'MOB', Controller = 'CTRL', PC = 'PC' }
+
+                local deviceIconImg = Instance.new('ImageLabel')
+                deviceIconImg.Name = 'DeviceIcon'
+                deviceIconImg.Size = udim2fromOffset(22, 22)
+                deviceIconImg.Position = udim2fromOffset(size.X + 10, -1)
+                deviceIconImg.BackgroundTransparency = 1
+                deviceIconImg.BorderSizePixel = 0
+                deviceIconImg.Visible = false
+                deviceIconImg.Parent = nametag
+
+                -- Falls back to text if the image asset can't render (only executors
+                -- with a native getcustomasset can load these from a raw local file --
+                -- everything else gets an empty Image string here).
+                local deviceIconTxt = Instance.new('TextLabel')
+                deviceIconTxt.Name = 'DeviceIconText'
+                deviceIconTxt.Size = udim2fromOffset(32, 22)
+                deviceIconTxt.Position = udim2fromOffset(size.X + 10, -1)
+                deviceIconTxt.BackgroundTransparency = 1
+                deviceIconTxt.BorderSizePixel = 0
+                deviceIconTxt.RichText = false
+                deviceIconTxt.TextScaled = true
+                deviceIconTxt.TextStrokeTransparency = 0.5
+                deviceIconTxt.TextStrokeColor3 = color3new()
+                deviceIconTxt.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+                deviceIconTxt.TextColor3 = Color3.new(1, 1, 1)
+                deviceIconTxt.Visible = false
+                deviceIconTxt.Parent = nametag
+
+                local function applyDevice(deviceType)
+                    local img = getcustomasset(deviceIcons[deviceType])
+                    if img and img ~= '' then
+                        deviceIconImg.Image = img
+                        deviceIconImg.Visible = true
+                        deviceIconTxt.Visible = false
+                    else
+                        deviceIconTxt.Text = deviceShort[deviceType] or ''
+                        deviceIconTxt.Visible = true
+                        deviceIconImg.Visible = false
+                    end
+                end
 
                 local deviceType = getPlayerDevice(ent.Player)
                 if deviceType then
-                    deviceLabel.Image = getcustomasset(deviceIcons[deviceType])
+                    applyDevice(deviceType)
                 else
                     -- UserInputType hasn't replicated yet for a just-joined player --
                     -- pick it up the moment it does instead of leaving the icon blank
                     -- for the rest of the match.
                     local deviceConn
                     deviceConn = ent.Player:GetAttributeChangedSignal('UserInputType'):Connect(function()
-                        if not deviceLabel.Parent then
+                        if not deviceIconImg.Parent then
                             if deviceConn then deviceConn:Disconnect() end
                             return
                         end
                         local newType = getPlayerDevice(ent.Player)
                         if newType then
-                            deviceLabel.Image = getcustomasset(deviceIcons[newType])
+                            applyDevice(newType)
                             if deviceConn then deviceConn:Disconnect() end
                         end
                     end)
