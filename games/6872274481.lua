@@ -7,6 +7,11 @@ local canDebug = true
 local run = function(func)
 	local suc, err = pcall(func)
 	if not suc then
+		-- warn() prints to the console permanently (unlike the notification below,
+		-- which is a transient popup that's easy to miss when many modules fail
+		-- in a fast-scrolling load) -- this is the only reliable way to see EVERY
+		-- failure after the fact, not just whichever one happened to be on screen.
+		warn('[Vain 6872274481] module load failure: ' .. tostring(err))
 		local vain = shared.vain
 		if vain and vain.CreateNotification then
 			vain:CreateNotification('Vain 6872274481', 'Failure executing function: ' .. tostring(err), 3)

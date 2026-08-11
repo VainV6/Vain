@@ -312,8 +312,16 @@ vain = guiLoader and guiLoader()
 shared.vain = vain
 
 if not shared.VainIndependent then
+	-- pcall'd: a throw anywhere in universal.lua OUTSIDE its own run() blocks
+	-- (top-level code between them) would otherwise abort main.lua's remaining
+	-- execution too, skipping the game-specific file entirely -- the exact
+	-- "most modules silently vanished" failure mode this codebase has hit
+	-- before (see guis/new.lua's topbar-parenting fix).
 	local universalLoader = loadstring(downloadFile('vain/games/universal.lua'), 'universal')
-	if universalLoader then universalLoader() end
+	if universalLoader then
+		local ok, err = pcall(universalLoader)
+		if not ok then warn('[Vain] universal.lua failed: ' .. tostring(err)) end
+	end
 	local gamePath = 'vain/games/'..game.PlaceId..'.lua'
 	-- Always route through downloadFile, even when the file's already cached --
 	-- a plain isfile+readfile shortcut here bypassed downloadFile's VAINEOF
@@ -334,7 +342,10 @@ if not shared.VainIndependent then
 	end
 	if hasGameFile then
 		local gameLoader = loadstring(downloadFile(gamePath), tostring(game.PlaceId))
-		if gameLoader then gameLoader() end
+		if gameLoader then
+			local ok, err = pcall(gameLoader)
+			if not ok then warn('[Vain] '..gamePath..' failed: ' .. tostring(err)) end
+		end
 	end
 	finishLoading()
 else

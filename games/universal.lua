@@ -66,8 +66,17 @@ local function downloadFile(path, func)
 	end
 	return (func or readfile)(path)
 end
+-- pcall'd: this used to be a bare func() call with zero error isolation, so
+-- ANY module here throwing killed every module registered after it in this
+-- file for the rest of the load (the exact "Sigrid Charge"/"TopBarAppGui"
+-- failure mode that already bit this codebase twice -- see guis/new.lua).
+-- warn() so a failure is visible in the console permanently, not just a
+-- transient notification easy to miss during a fast-scrolling load.
 local run = function(func)
-	func()
+	local suc, err = pcall(func)
+	if not suc then
+		warn('[Vain universal] module load failure: ' .. tostring(err))
+	end
 end
 local queue_on_teleport = queue_on_teleport or function() end
 local cloneref = cloneref or function(obj)
