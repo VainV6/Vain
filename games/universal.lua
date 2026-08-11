@@ -6786,6 +6786,7 @@ run(function()
     })
     FontOption = NameTags:CreateFont({
     	Name = 'Font',
+    	Tooltip = 'Font used for the nametag text',
     	Blacklist = 'Arial',
     	Function = function()
     		if NameTags.Enabled then
@@ -6796,6 +6797,7 @@ run(function()
     })
     Color = NameTags:CreateColorSlider({
     	Name = 'Player Color',
+    	Tooltip = 'Fallback nametag color when a team color is unavailable',
     	Function = function(hue, sat, val)
     		if NameTags.Enabled and ColorFunc[methodused] then
     			ColorFunc[methodused](hue, sat, val)
@@ -6804,6 +6806,7 @@ run(function()
     })
     Scale = NameTags:CreateSlider({
     	Name = 'Scale',
+    	Tooltip = 'Size of the nametag text',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6817,6 +6820,7 @@ run(function()
     })
     Background = NameTags:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the nametag background plate',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6830,6 +6834,7 @@ run(function()
     })
     Health = NameTags:CreateToggle({
     	Name = 'Health',
+    	Tooltip = 'Shows current health next to the name',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6839,6 +6844,7 @@ run(function()
     })
     Distance = NameTags:CreateToggle({
     	Name = 'Distance',
+    	Tooltip = 'Shows distance in studs next to the name',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6848,6 +6854,7 @@ run(function()
     })
     DisplayName = NameTags:CreateToggle({
     	Name = 'Use Displayname',
+    	Tooltip = 'Shows the player\'s display name instead of their @username',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6869,6 +6876,7 @@ run(function()
     })
     DrawingToggle = NameTags:CreateToggle({
     	Name = 'Drawing',
+    	Tooltip = 'Renders nametags with the Drawing library instead of Roblox UI (lighter weight)',
     	Function = function()
     		if NameTags.Enabled then
     			NameTags:Toggle()
@@ -6878,6 +6886,7 @@ run(function()
     })
     DistanceCheck = NameTags:CreateToggle({
     	Name = 'Distance Check',
+    	Tooltip = 'Only shows nametags within the distance range below',
     	Function = function(callback)
     		DistanceLimit.Object.Visible = callback
     	end,
@@ -6960,6 +6969,7 @@ run(function()
     })
     Scale = PlayerModel:CreateSlider({
     	Name = 'Scale',
+    	Tooltip = 'Size of the replacement mesh',
     	Min = 0,
     	Max = 2,
     	Default = 1,
@@ -6975,6 +6985,7 @@ run(function()
     		Rots,
     		PlayerModel:CreateSlider({
     			Name = name,
+    			Tooltip = 'Rotates the replacement mesh on this axis',
     			Min = 0,
     			Max = 360,
     			Function = function(val)
@@ -6990,6 +7001,7 @@ run(function()
     end
     Local = PlayerModel:CreateToggle({
     	Name = 'Local',
+    	Tooltip = 'Also applies the mesh to your own character',
     	Function = function()
     		if PlayerModel.Enabled then
     			PlayerModel:Toggle()
@@ -7067,6 +7079,7 @@ run(function()
     })
     List = Search:CreateTextList({
     	Name = 'Parts',
+    	Tooltip = 'Name of the part/model to search for and highlight',
     	Function = function()
     		if Search.Enabled then
     			Search:Toggle()
@@ -7076,6 +7089,7 @@ run(function()
     })
     Color = Search:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Color of the box drawn around found parts',
     	Function = function(hue, sat, val)
     		for _, v in Reference do
     			v.Color3 = Color3.fromHSV(hue, sat, val)
@@ -7084,6 +7098,7 @@ run(function()
     })
     FillTransparency = Search:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the box drawn around found parts',
     	Min = 0,
     	Max = 1,
     	Function = function(val)
@@ -7229,6 +7244,7 @@ run(function()
     })
     StartPosition = Tracers:CreateDropdown({
     	Name = 'Start Position',
+    	Tooltip = 'Where the tracer line starts from on your screen',
     	List = { 'Middle', 'Bottom', 'Mouse' },
     	Function = function()
     		if Tracers.Enabled then
@@ -7239,6 +7255,7 @@ run(function()
     })
     EndPosition = Tracers:CreateDropdown({
     	Name = 'End Position',
+    	Tooltip = 'Body part the tracer line points to',
     	List = { 'Head', 'Torso' },
     	Function = function()
     		if Tracers.Enabled then
@@ -7249,6 +7266,7 @@ run(function()
     })
     Color = Tracers:CreateColorSlider({
     	Name = 'Player Color',
+    	Tooltip = 'Fallback tracer color when a team color is unavailable',
     	Function = function(hue, sat, val)
     		if Tracers.Enabled then
     			ColorFunc(hue, sat, val)
@@ -7257,6 +7275,7 @@ run(function()
     })
     Transparency = Tracers:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the tracer lines',
     	Min = 0,
     	Max = 1,
     	Function = function(val)
@@ -7268,6 +7287,7 @@ run(function()
     })
     DistanceColor = Tracers:CreateToggle({
     	Name = 'Color by distance',
+    	Tooltip = 'Colors tracers based on distance to the target instead of a fixed color',
     	Function = function()
     		if Tracers.Enabled then
     			Tracers:Toggle()
@@ -7277,6 +7297,7 @@ run(function()
     })
     Distance = Tracers:CreateToggle({
     	Name = 'Distance Check',
+    	Tooltip = 'Only shows tracers for entities within the distance range below',
     	Function = function(callback)
     		DistanceLimit.Object.Visible = callback
     	end,
@@ -7292,6 +7313,7 @@ run(function()
     })
     Behind = Tracers:CreateToggle({
     	Name = 'Behind',
+    	Tooltip = 'Still draws a tracer when the target is behind you',
     	Default = true,
     })
     Teammates = Tracers:CreateToggle({
