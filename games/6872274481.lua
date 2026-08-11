@@ -25066,8 +25066,16 @@ end)
 run(function()
     local FishermanSpy
     local Teammates
-    local GoldfishNotify
-    local GoldfishHighlight
+    local GoldNotify
+    local DiamondNotify
+    local EmeraldNotify
+
+    -- fishModel -> {word to announce, hex color for that word in the message}
+    local SPECIAL_FISH = {
+    	fish_gold = {'Gold', '#FFD75A'},
+    	fish_diamond = {'Diamond', '#5AD7FF'},
+    	fish_emerald = {'Emerald', '#5AFF7A'},
+    }
 
     FishermanSpy = vain.Categories.Kits:CreateModule({
     	Name = 'Fisherman Spy',
@@ -25081,15 +25089,24 @@ run(function()
     					local text = {}
     					for _, v in data.dropData.drops do
     						local itemDisplay = bedwars.ItemMeta[v.itemType] and bedwars.ItemMeta[v.itemType].displayName or v.itemType
-    						table.insert(text, `{v.amount} {itemDisplay:lower()}{v.amount >= 2 and 's' or ''}`)
+    						-- FishCaught's own amount field reports one less than what's
+    						-- actually received (4 diamonds caught shows as 3), so +1 here
+    						-- to match reality.
+    						local amount = v.amount + 1
+    						table.insert(text, `{amount} {itemDisplay:lower()}{amount >= 2 and 's' or ''}`)
     					end
 
     					if #text > 0 and isEnemy then
     						notif('FishermanSpy', `{data.catchingPlayer.Name} caught {table.concat(text, ', ')}`, 20, 'info')
     					end
 
-    					if GoldfishNotify.Enabled and isEnemy and data.dropData.fishModel == 'fish_gold' then
-    						notif('FishermanSpy', `{data.catchingPlayer.Name} caught a Gold Fish!`, 20, GoldfishHighlight.Enabled and 'gold' or 'info')
+    					local special = SPECIAL_FISH[data.dropData.fishModel]
+    					local specialToggle = data.dropData.fishModel == 'fish_gold' and GoldNotify
+    						or data.dropData.fishModel == 'fish_diamond' and DiamondNotify
+    						or data.dropData.fishModel == 'fish_emerald' and EmeraldNotify
+    					if special and specialToggle and specialToggle.Enabled and isEnemy then
+    						local word, hex = special[1], special[2]
+    						notif('FishermanSpy', `{data.catchingPlayer.Name} has caught a <font color='{hex}'>{word}</font> fish`, 20, 'info')
     					end
     				end
     			end))
@@ -25102,20 +25119,20 @@ run(function()
     	Tooltip = 'Ignores players on your own team',
     	Default = true
     })
-    GoldfishNotify = FishermanSpy:CreateToggle({
-    	Name = 'Goldfish Caught',
+    GoldNotify = FishermanSpy:CreateToggle({
+    	Name = 'Notify on Gold',
     	Tooltip = 'Sends a dedicated notification whenever anyone catches a Gold Fish',
-    	Default = false,
-    	Function = function(callback)
-    		GoldfishHighlight.Object.Visible = callback
-    	end
+    	Default = false
     })
-    GoldfishHighlight = FishermanSpy:CreateToggle({
-    	Name = 'Highlight',
-    	Tooltip = 'Sends the Goldfish notification in gold so it stands out',
-    	Default = true,
-    	Darker = true,
-    	Visible = false
+    DiamondNotify = FishermanSpy:CreateToggle({
+    	Name = 'Notify on Diamond',
+    	Tooltip = 'Sends a dedicated notification whenever anyone catches a Diamond Fish',
+    	Default = false
+    })
+    EmeraldNotify = FishermanSpy:CreateToggle({
+    	Name = 'Notify on Emerald',
+    	Tooltip = 'Sends a dedicated notification whenever anyone catches an Emerald Fish',
+    	Default = false
     })
 end)
 
