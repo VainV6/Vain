@@ -22771,6 +22771,7 @@ run(function()
 
     RefreshButton = AutoLani:CreateButton({
         Name = "Refresh Teammates",
+        Tooltip = "Re-scans your team for the teammate dropdown above",
         Function = function()
             task.spawn(function()
                 local newNames = getTeammates(true)
@@ -23410,6 +23411,7 @@ run(function()
     
     ESPBackground = MetalDetector:CreateToggle({
         Name = 'Background',
+        Tooltip = 'Renders a background box behind the metal ESP icon',
         Default = true,
         Function = function(callback)
             if ESPColor and ESPColor.Object then ESPColor.Object.Visible = callback end
@@ -23425,6 +23427,7 @@ run(function()
     
     ESPColor = MetalDetector:CreateColorSlider({
         Name = 'Background Color',
+        Tooltip = 'Color of the background box behind the metal ESP icon',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -24638,6 +24641,7 @@ run(function()
     })
     RefreshButton = AutoWhisper:CreateButton({
         Name = "Refresh Teammates",
+        Tooltip = "Re-scans your team for the teammate dropdown above",
         Function = function()
             task.spawn(function()
                 local newList = getTeammates(true)
@@ -25191,6 +25195,7 @@ run(function()
     })
     Color = ArmorTrims:CreateColorSlider({
         Name = 'Trim color',
+        Tooltip = 'Color of the armor trim',
         Function = function(hue, sat, val)
             if ArmorTrims.Enabled and lplr.Character then
                 lplr:SetAttribute('ArmorTrimColor', Color3.fromHSV(hue, sat, val))
@@ -25262,10 +25267,12 @@ run(function()
     
     Fill = BlockOverlay:CreateColorSlider({
         Name = 'Overlay Color',
+        Tooltip = 'Fill color of the block selector overlay',
         DefaultOpacity = 0.5
     })
     Outline = BlockOverlay:CreateColorSlider({
         Name = 'Outline Color',
+        Tooltip = 'Outline color of the block selector overlay',
         DefaultOpacity = 1
     })
 end)
@@ -25383,6 +25390,7 @@ run(function()
     })
     Color = DamageIndicator:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Color of the damage indicator text',
         DefaultHue = 0,
         Function = function(hue, sat, val)
             if DamageIndicator.Enabled then
@@ -25537,6 +25545,7 @@ run(function()
     })
     Color = HitColor:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Color of the hit highlight',
         DefaultOpacity = 0.4
     })
 end)
@@ -25620,6 +25629,7 @@ run(function()
     })
     Interface:CreateColorSlider({
         Name = 'Health Color',
+        Tooltip = 'Color of the health bar/text',
         Function = function(hue, sat, val)
             modifyconstant(HotbarHealthbar.render, 16, tonumber(Color3.fromHSV(hue, sat, val):ToHex(), 16))
             if Interface.Enabled then
@@ -25633,6 +25643,7 @@ run(function()
     })
     Interface:CreateColorSlider({
         Name = 'Hotbar Color',
+        Tooltip = 'Color of the hotbar interface',
         DefaultOpacity = 0.8,
         Function = function(hue, sat, val, opacity)
             local func = oldinvrender or HotbarOpenInventory.render
@@ -25957,6 +25968,7 @@ run(function()
     })
     ReachDisplay:CreateFont({
         Name = 'Font',
+        Tooltip = 'Font used for the reach display text',
         Blacklist = 'Gotham',
         Function = function(val)
             label.FontFace = val
@@ -25964,6 +25976,7 @@ run(function()
     })
     ReachDisplay:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Background color of the reach display',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -26723,6 +26736,7 @@ run(function()
 	})
 	Background = KitESP:CreateToggle({
 		Name = 'Background',
+		Tooltip = 'Renders a background box behind the kit ESP icon',
 		Function = function(callback)
 			if Color and Color.Object then Color.Object.Visible = callback end
 			for _, v in espobjs do
@@ -26734,6 +26748,7 @@ run(function()
 	})
 	Color = KitESP:CreateColorSlider({
 		Name = 'Background Color',
+		Tooltip = 'Color of the background box behind the kit ESP icon',
 		DefaultValue = 0,
 		DefaultOpacity = 0.5,
 		Function = function(hue, sat, val, opacity)
@@ -30398,6 +30413,7 @@ run(function()
     
     ESPColor = StarCollector:CreateColorSlider({
         Name = 'Background Color',
+        Tooltip = 'Color of the background box behind this ESP element',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -31279,6 +31295,7 @@ run(function()
     
     ESPColor = Grove:CreateColorSlider({
         Name = 'Background Color',
+        Tooltip = 'Color of the background box behind this ESP element',
         DefaultValue = 0.5,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -31961,6 +31978,7 @@ run(function()
 
     ESPColor = Lucia:CreateColorSlider({
         Name = 'Background Color',
+        Tooltip = 'Color of the background box behind this ESP element',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Visible = false,
@@ -32310,6 +32328,7 @@ run(function()
 
     ColorSlider = BeehiveSpy:CreateColorSlider({
         Name         = "Color",
+        Tooltip = 'Color of the background box behind this ESP element',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -33816,6 +33835,7 @@ run(function()
     
     ESPColor = FarmerCletus:CreateColorSlider({
         Name = 'Background Color',
+        Tooltip = 'Color of the background box behind this ESP element',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -34568,6 +34588,7 @@ run(function()
 
     BlockColor:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Color of the block placement outline',
         Function = function(h, s, v)
             blockSelectorColor = Color3.fromHSV(h, s, v)
         end
@@ -34693,12 +34714,14 @@ run(function()
     end
     Material = AntiVoid:CreateDropdown({
         Name = 'Material', List = materials, Default = 'ForceField',
+        Tooltip = 'Material of the invisible anti-void floor',
         Function = function(val)
             if AntiVoidPart then AntiVoidPart.Material = Enum.Material[val] end
         end,
     })
     Color = AntiVoid:CreateColorSlider({
-        Name = 'Color', DefaultOpacity = 0.5,
+        Name = 'Color', Tooltip = 'Color of the anti-void floor',
+        DefaultOpacity = 0.5,
         Function = function(h, s, v, o)
             if AntiVoidPart then
                 AntiVoidPart.Color = Color3.fromHSV(h, s, v)
