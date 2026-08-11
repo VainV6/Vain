@@ -5205,7 +5205,7 @@ end
 
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
-	local color = type == 'alert' and Color3.fromRGB(250, 50, 56) or type == 'warning' and Color3.fromRGB(236, 129, 43) or type == 'success' and Color3.fromRGB(80, 200, 100) or type == 'gold' and Color3.fromRGB(255, 215, 90) or Color3.fromRGB(220, 220, 220)
+	local color = type == 'alert' and Color3.fromRGB(250, 50, 56) or type == 'warning' and Color3.fromRGB(43, 130, 237) or type == 'success' and Color3.fromRGB(80, 200, 100) or type == 'gold' and Color3.fromRGB(255, 215, 90) or Color3.fromRGB(220, 220, 220)
 	if license.Closet or license.Webhook then
 		if license.Webhook then
 			request({
