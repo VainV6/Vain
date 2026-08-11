@@ -17349,6 +17349,7 @@ run(function()
     })
     FastPlace:CreateButton({
     	Name = 'Reset to bedwars cps',
+    	Tooltip = 'Resets the CPS slider back to BedWars\' native block-place rate',
     	Function = function()
     		CPS:SetValue(12)
     	end,
@@ -17927,6 +17928,7 @@ run(function()
 
 	UIToggle = AutoBank:CreateToggle({
 		Name = 'UI',
+		Tooltip = 'Shows the item-count row above your healthbar while banking',
 		Function = function(callback)
 			if AutoBank.Enabled and UI then
 				UI.Visible = callback
@@ -19415,6 +19417,7 @@ run(function()
 	})
 	BBind = FastDrop:CreateDropdown({
 		Name = "Bind",
+		Tooltip = 'Which key triggers Fast Drop',
 		List = bindableInputs,
 		Default = "H",
 		Function = function(v)
@@ -19652,6 +19655,7 @@ run(function()
     })
     Color = BedPlates:CreateColorSlider({
     	Name = 'Background Color',
+    	Tooltip = 'Color of the background box behind each bed plate',
     	DefaultValue = 0,
     	DefaultOpacity = 0.5,
     	Function = function(hue, sat, val, opacity)
@@ -19675,6 +19679,7 @@ run(function()
     })
     LayerColor = BedPlates:CreateColorSlider({
     	Name = 'Counter Text Color',
+    	Tooltip = 'Color of the layer counter text',
     	DefaultSat = 0,
     	DefaultValue = 1,
     	Function = function()
@@ -20994,6 +20999,7 @@ run(function()
     
     BeesBackground = Beekeeper:CreateToggle({
         Name = 'Background',
+        Tooltip = 'Renders a background box behind the bee count icon',
         Default = true,
         Function = function(callback)
             if BeesColor and BeesColor.Object then BeesColor.Object.Visible = callback end
@@ -21010,6 +21016,7 @@ run(function()
     
 	BeesColor = Beekeeper:CreateColorSlider({
 		Name = 'Background Color',
+		Tooltip = 'Color of the background box behind the bee count icon',
 		DefaultValue = 0,
 		DefaultOpacity = 0.5,
 		Function = function(hue, sat, val, opacity)
@@ -21056,6 +21063,7 @@ run(function()
     
     BeehiveBackground = Beekeeper:CreateToggle({
         Name = 'Beehive Background',
+        Tooltip = 'Renders a background box behind the beehive ESP element',
         Default = true,
         Function = function(callback)
             if BeehiveColor and BeehiveColor.Object then BeehiveColor.Object.Visible = callback end
@@ -21079,6 +21087,7 @@ run(function()
     
     BeehiveColor = Beekeeper:CreateColorSlider({
         Name = 'Beehive Color',
+        Tooltip = 'Color of the background box behind the beehive ESP element',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
@@ -22001,6 +22010,7 @@ run(function()
 	})
 	Range = AutoEmber:CreateSlider({
 		Name = 'Release Range',
+		Tooltip = 'Distance at which the spin attack is released on a target',
 		Min = 1,
 		Max = 22,
 		Default = 22,
@@ -22010,6 +22020,7 @@ run(function()
 	})
 	HoldRange = AutoEmber:CreateSlider({
 		Name = 'Hold Range',
+		Tooltip = 'Distance at which the spin attack starts charging',
 		Min = 1,
 		Max = 48,
 		Default = 32,
@@ -22017,7 +22028,7 @@ run(function()
 			return val <= 1 and 'stud' or 'studs'
 		end
 	})
-	Limit = AutoEmber:CreateToggle({Name = 'Limit to item'})
+	Limit = AutoEmber:CreateToggle({Name = 'Limit to item', Tooltip = 'Only works while the Ember weapon is equipped'})
 end)
 
 run(function()
@@ -22193,9 +22204,10 @@ run(function()
 			table.insert(methods, i)
 		end
 	end
-	Sort = AutoHannah:CreateDropdown({Name = 'Sort', List = methods})
+	Sort = AutoHannah:CreateDropdown({Name = 'Sort', Tooltip = 'How to prioritize targets', List = methods})
 	Distance = AutoHannah:CreateSlider({
 		Name = "Distance",
+		Tooltip = 'Maximum distance to execute Hannah\'s ability on a target',
 		Min = 0,
 		Max = 16,
 		Default = 12,
@@ -22208,6 +22220,7 @@ run(function()
 	})
 	KATarget = AutoHannah:CreateToggle({
 		Name = 'Use KA Target',
+		Tooltip = 'Uses Killaura\'s current target instead of picking its own',
 		Default = false,
 	})
 end)
