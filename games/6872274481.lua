@@ -4200,6 +4200,7 @@ run(function()
 
 	ExtendedRange = SilentAura:CreateToggle({
 		Name = 'Extended Range',
+		Tooltip = 'Multiplies your attack range by the value below',
 		Function = function(callback)
 			if ExtendedRangeSlider then
 				ExtendedRangeSlider.Object.Visible = callback
@@ -4209,6 +4210,7 @@ run(function()
 
 	ExtendedRangeSlider = SilentAura:CreateSlider({
 		Name = 'Extend Range',
+		Tooltip = 'Range multiplier applied while Extended Range is on',
 		Min = 1,
 		Max = 3,
 		Default = 1,
@@ -8924,6 +8926,7 @@ run(function()
 
 	FOV = ProjectileAimbot:CreateSlider({
 		Name = 'FOV',
+		Tooltip = 'Field-of-view radius (in pixels) targets must be within on screen',
 		Min = 1,
 		Max = 1000,
 		Default = 1000
@@ -9008,6 +9011,7 @@ run(function()
 
 	DesirePACursorViewMode = ProjectileAimbot:CreateDropdown({
 		Name = 'Cursor View Mode',
+		Tooltip = 'Which camera mode Hide Cursor applies in',
 		List = {'First Person', 'Third Person', 'Both'},
 		Default = 'First Person',
 		Darker = true,
@@ -9081,6 +9085,7 @@ run(function()
 
 	OtherProjectiles = ProjectileAimbot:CreateToggle({
 		Name = 'Other Projectiles',
+		Tooltip = 'Also targets non-arrow projectiles (excluding anything in the blacklist below)',
 		Default = true,
 		Function = function(call)
 			if Blacklist then Blacklist.Object.Visible = call end
@@ -9089,6 +9094,7 @@ run(function()
 
 	Blacklist = ProjectileAimbot:CreateTextList({
 		Name = 'Blacklist',
+		Tooltip = 'Projectile types to never aim (e.g. telepearl)',
 		Darker = true,
 		Default = {'telepearl'},
 		Visible = OtherProjectiles.Enabled
@@ -9096,6 +9102,7 @@ run(function()
 
 	AutoCharge = ProjectileAimbot:CreateToggle({
 		Name = "AutoCharge",
+		Tooltip = 'Automatically charges your bow/crossbow before firing',
 		Default = true,
 		Function = function(v)
 			if AeroPAChargePercent and AeroPAChargePercent.Object then AeroPAChargePercent.Object.Visible = v end
@@ -9808,6 +9815,7 @@ run(function()
 
     Color = HiveESP:CreateColorSlider({
     	Name = 'Text Color',
+    	Tooltip = 'Color of the beehive info text',
     	Function = function(hue, sat, val)
     		if HiveESP.Enabled then
     			for ent in Reference do
@@ -9959,6 +9967,7 @@ run(function()
 
     Color = CustomTags:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Color of the custom clan tag',
     	Function = function()
     		if CustomTags.Enabled then
     			CompleteTagEffect()
@@ -10709,6 +10718,7 @@ run(function()
 
     DiamondToggle = GeneratorESP:CreateToggle({
         Name = 'Diamond',
+        Tooltip = 'Shows diamond generators (billboard mode)',
         Function = function() refreshESP() end,
         Default = false,
         Visible = true
@@ -10716,6 +10726,7 @@ run(function()
 
     EmeraldToggle = GeneratorESP:CreateToggle({
         Name = 'Emerald',
+        Tooltip = 'Shows emerald generators (billboard mode)',
         Function = function() refreshESP() end,
         Default = false,
         Visible = true
@@ -10723,6 +10734,7 @@ run(function()
 
     CompactDiamondToggle = GeneratorESP:CreateToggle({
         Name = 'Compact Diamond',
+        Tooltip = 'Shows diamond generators (compact side UI mode)',
         Default = false,
         Visible = false,
         Function = function()
@@ -10732,6 +10744,7 @@ run(function()
 
     CompactEmeraldToggle = GeneratorESP:CreateToggle({
         Name = 'Compact Emerald',
+        Tooltip = 'Shows emerald generators (compact side UI mode)',
         Default = false,
         Visible = false,
         Function = function()
@@ -10741,6 +10754,7 @@ run(function()
 
     TeamGenToggle = GeneratorESP:CreateToggle({
         Name = 'Team Generators',
+        Tooltip = 'Also shows team base generators (iron/gold), not just diamond/emerald',
         Function = function(callback)
             if ShowOwnTeamGen then ShowOwnTeamGen.Object.Visible = callback end
             if ShowEnemyTeamGen then ShowEnemyTeamGen.Object.Visible = callback end
@@ -10751,6 +10765,7 @@ run(function()
 
     ShowOwnTeamGen = GeneratorESP:CreateToggle({
         Name = 'Show Own Team',
+        Tooltip = 'Shows your own team\'s base generator',
         Function = function() refreshESP() end,
         Default = false,
         Visible = true
@@ -10758,6 +10773,7 @@ run(function()
 
     ShowEnemyTeamGen = GeneratorESP:CreateToggle({
         Name = 'Show Enemy Teams',
+        Tooltip = 'Shows enemy teams\' base generators',
         Function = function() refreshESP() end,
         Default = true,
         Visible = true
