@@ -347,7 +347,9 @@ pcall(function()
     local Teammates
     local DistanceCheck
     local DistanceLimit
+    local NativeStyle
     local Strings, Sizes, Reference = {}, {}, {}
+    local nativeConnections = {}
     local bossNametags = {}
     local Folder = Instance.new('Folder')
     Folder.Parent = vain.gui
@@ -996,6 +998,151 @@ pcall(function()
             lastUpdate[ent] = 0
         end,
 
+        -- "Native Style": instead of building our own always-on-top screen overlay,
+        -- attach a small companion BillboardGui right next to the game's own native
+        -- nametag (head.Nametag). AlwaysOnTop is left off and Adornee is a real head
+        -- Instance, so Roblox's own BillboardGui rendering handles wall occlusion and
+        -- distance culling for us -- no manual raycasting/visibility code needed, and
+        -- it behaves exactly like the native nametag because it's rendered the same way.
+        Native = function(ent)
+            if not ent.Player then return end
+            if not Targets.Players.Enabled then return end
+            if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+            local _ntTier = getAccountTier(ent.Player)
+            local _ntMyTier = getAccountTier(lplr)
+            if (_ntTier >= 1 and _ntMyTier == 0) or (_ntTier >= 2 and _ntMyTier <= 1) then return end
+
+            local char = ent.Character
+            local head = char and char:FindFirstChild('Head')
+            if not head then return end
+
+            local panel = Instance.new('BillboardGui')
+            panel.Name = 'VainNativeUpgrade'
+            panel.Adornee = head
+            panel.AlwaysOnTop = false
+            panel.Size = UDim2.fromOffset(150, 26)
+            panel.StudsOffsetWorldSpace = Vector3.new(0, 1.4, 0)
+            panel.MaxDistance = (DistanceCheck.Enabled and DistanceLimit.ValueMax) or 150
+            panel.Parent = head
+
+            local row = Instance.new('Frame')
+            row.Name = 'Row'
+            row.BackgroundTransparency = 1
+            row.Size = UDim2.fromScale(1, 1)
+            row.Parent = panel
+            local layout = Instance.new('UIListLayout')
+            layout.FillDirection = Enum.FillDirection.Horizontal
+            layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            layout.VerticalAlignment = Enum.VerticalAlignment.Center
+            layout.Padding = UDim.new(0, 4)
+            layout.Parent = row
+
+            local function addIcon(name, image)
+                local icon = Instance.new('ImageLabel')
+                icon.Name = name
+                icon.Size = udim2fromOffset(22, 22)
+                icon.BackgroundTransparency = 1
+                icon.Image = image or ''
+                icon.Parent = row
+                return icon
+            end
+
+            if ShowKits.Enabled then
+                local kit = ent.Player:GetAttribute('PlayingAsKits')
+                local kitImage = kit and kitImageIds[kit:lower()]
+                addIcon('KitIcon', kitImage or kitImageIds['none'])
+            end
+
+            if Equipment.Enabled then
+                local hand = addIcon('Hand')
+                local helmet = addIcon('Helmet')
+                local chest = addIcon('Chestplate')
+                local boots = addIcon('Boots')
+                local inventory = store.inventories[ent.Player]
+                if inventory then
+                    hand.Image = bedwars.getIcon(inventory.hand or { itemType = '' }, true)
+                    helmet.Image = bedwars.getIcon(inventory.armor and inventory.armor[4] or { itemType = '' }, true)
+                    chest.Image = bedwars.getIcon(inventory.armor and inventory.armor[5] or { itemType = '' }, true)
+                    boots.Image = bedwars.getIcon(inventory.armor and inventory.armor[6] or { itemType = '' }, true)
+                end
+            end
+
+            if DeviceIcon.Enabled then
+                local function getPlayerDevice(plr)
+                    local val = plr:GetAttribute('UserInputType')
+                    if not val then return nil end
+                    val = val:upper()
+                    if val == 'MOBILE' then return 'Mobile'
+                    elseif val == 'GAMEPAD' or val == 'CONTROLLER' then return 'Controller'
+                    else return 'PC' end
+                end
+                local deviceIcons = {
+                    Mobile = 'vain/assets/new/devicemobile.png',
+                    Controller = 'vain/assets/new/devicecontroller.png',
+                    PC = 'vain/assets/new/devicepc.png',
+                }
+                local deviceShort = { Mobile = 'MOB', Controller = 'CTRL', PC = 'PC' }
+                local deviceType = getPlayerDevice(ent.Player)
+                local deviceIcon = addIcon('DeviceIcon')
+                local function applyDevice(dt)
+                    local img = getcustomasset(deviceIcons[dt])
+                    if img and img ~= '' then
+                        deviceIcon.Image = img
+                    else
+                        local txt = deviceIcon:FindFirstChild('Fallback')
+                        if not txt then
+                            txt = Instance.new('TextLabel')
+                            txt.Name = 'Fallback'
+                            txt.Size = UDim2.fromScale(1, 1)
+                            txt.BackgroundTransparency = 1
+                            txt.RichText = false
+                            txt.TextScaled = true
+                            txt.TextStrokeTransparency = 0.5
+                            txt.TextStrokeColor3 = color3new()
+                            txt.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+                            txt.TextColor3 = Color3.new(1, 1, 1)
+                            txt.Parent = deviceIcon
+                        end
+                        txt.Text = deviceShort[dt] or ''
+                    end
+                end
+                if deviceType then
+                    applyDevice(deviceType)
+                else
+                    local conn
+                    conn = ent.Player:GetAttributeChangedSignal('UserInputType'):Connect(function()
+                        if not deviceIcon.Parent then
+                            if conn then conn:Disconnect() end
+                            return
+                        end
+                        local newType = getPlayerDevice(ent.Player)
+                        if newType then
+                            applyDevice(newType)
+                            if conn then conn:Disconnect() end
+                        end
+                    end)
+                    nativeConnections[ent] = conn
+                    NameTags:Clean(conn)
+                end
+            end
+
+            if Rank.Enabled then
+                local rankIcon = addIcon('RankIcon')
+                task.spawn(function()
+                    task.wait(math.random() * 0.5)
+                    if not rankIcon.Parent then return end
+                    local ok, division = pcall(function()
+                        return store.rank[ent.Player].async()
+                    end)
+                    if ok and division and bedwars.RankMeta and bedwars.RankMeta[division] and rankIcon.Parent then
+                        rankIcon.Image = bedwars.RankMeta[division].image
+                    end
+                end)
+            end
+
+            Reference[ent] = panel
+        end,
+
         Drawing = function(ent)
             if not Targets.Players.Enabled and ent.Player then return end
             local bossNames = {Titan = true, Bhaa = true}
@@ -1078,6 +1225,17 @@ pcall(function()
                         pcall(function() c:Disconnect() end)
                     end
                     kitTrackerConnections[ent] = nil
+                end
+                v:Destroy()
+            end
+        end,
+        Native = function(ent)
+            local v = Reference[ent]
+            if v then
+                Reference[ent] = nil
+                if nativeConnections[ent] then
+                    nativeConnections[ent]:Disconnect()
+                    nativeConnections[ent] = nil
                 end
                 v:Destroy()
             end
@@ -1368,7 +1526,7 @@ pcall(function()
         Name = 'Name Tags',
         Function = function(callback)
             if callback then
-                methodused = DrawingToggle.Enabled and 'Drawing' or 'Normal'
+                methodused = NativeStyle.Enabled and 'Native' or (DrawingToggle.Enabled and 'Drawing' or 'Normal')
                 frameCounter = 0
 
                 if Removed[methodused] then
@@ -1641,6 +1799,17 @@ pcall(function()
     DeviceIcon = NameTags:CreateToggle({
         Name = 'Device Icon',
         Tooltip = 'Shows device type (Mobile, PC, Controller) next to rank',
+        Function = function()
+            if NameTags.Enabled then
+                NameTags:Toggle()
+                NameTags:Toggle()
+            end
+        end
+    })
+
+    NativeStyle = NameTags:CreateToggle({
+        Name = 'Native Style',
+        Tooltip = 'Instead of a custom overlay, attaches Kit/Equipment/Device/Rank icons to the game\'s own nametag -- respects walls and distance like the vanilla nametag instead of rendering through them',
         Function = function()
             if NameTags.Enabled then
                 NameTags:Toggle()
