@@ -9506,7 +9506,7 @@ run(function()
     Folder.Parent = vain.gui
 
     local Reference, Strings = {}, {}
-    local Updates = {}
+    local LastLevel = {}
 
     local function Added(ent)
     	local Name = playersService:GetNameFromUserIdAsync(ent:GetAttribute('PlacedByUserId')) or 'Unknown'
@@ -9529,11 +9529,6 @@ run(function()
     	nametag.RichText = true
     	nametag.Parent = Folder
     	Reference[ent] = nametag
-
-    	HiveESP:Clean(ent:GetAttributeChangedSignal('Level'):Connect(function()
-    		Updates[ent] = tick() + 0.1
-    	end))
-    	Updates[ent] = tick() + 0.1
     end
     local function Updated(ent)
     	if Reference[ent] then
@@ -9547,6 +9542,7 @@ run(function()
     		Reference[ent]:Destroy()
     		Reference[ent] = nil
     	end
+	LastLevel[ent] = nil
     end
 
     HiveESP = vain.Categories.Render:CreateModule({
@@ -9567,8 +9563,10 @@ run(function()
     						continue
     					end
 
-    					if (Updates[ent] or 0) > tick() then
-    						nametag.Text = string.format(Strings[ent], tostring(ent:GetAttribute('Level') or 0), (ent:GetAttribute('Level') or 0) >= 2 and 's' or '')
+    					local level = ent:GetAttribute('Level') or 0
+    					if LastLevel[ent] ~= level then
+    						LastLevel[ent] = level
+    						nametag.Text = string.format(Strings[ent], tostring(level), level >= 2 and 's' or '')
     						local size = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
     						nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
     					end
@@ -34959,25 +34957,50 @@ end)
 
 run(function()
     local blockSelectorColor = Color3.fromRGB(255, 255, 255)
-    local conn
+    local watchers = {}
+
+    -- BedWars' own placement logic keeps re-setting Color3 on these (valid /
+    -- invalid placement feedback), so forcing it only once on creation got
+    -- silently overwritten the next time the game touched it. Watch each
+    -- instance's own Color3 signal and re-force immediately on every change
+    -- instead, not just the first one.
+    local function watch(v)
+        if watchers[v] then return end
+        pcall(function() v.Color3 = blockSelectorColor end)
+        watchers[v] = v:GetPropertyChangedSignal('Color3'):Connect(function()
+            if v.Color3 ~= blockSelectorColor then
+                pcall(function() v.Color3 = blockSelectorColor end)
+            end
+        end)
+    end
+
+    local function unwatch(v)
+        if watchers[v] then
+            watchers[v]:Disconnect()
+            watchers[v] = nil
+        end
+    end
 
     local BlockColor = vain.Categories.Render:CreateModule({
         Name = 'Block Selector Color',
         Tooltip = 'change your block placement outline color',
         Function = function(enabled)
             if enabled then
-                local lastCheck = 0
-                conn = workspace.DescendantAdded:Connect(function(v)
-                    if not (v:IsA('SelectionBox') or v:IsA('Highlight')) then return end
-                    local now = tick()
-                    if now - lastCheck < 0.05 then return end
-                    lastCheck = now
-                    pcall(function()
-                        v.Color3 = blockSelectorColor
-                    end)
-                end)
+                for _, v in workspace:GetDescendants() do
+                    if v:IsA('SelectionBox') or v:IsA('Highlight') then
+                        watch(v)
+                    end
+                end
+                BlockColor:Clean(workspace.DescendantAdded:Connect(function(v)
+                    if v:IsA('SelectionBox') or v:IsA('Highlight') then
+                        watch(v)
+                    end
+                end))
+                BlockColor:Clean(workspace.DescendantRemoving:Connect(unwatch))
             else
-                if conn then conn:Disconnect() conn = nil end
+                for v in watchers do
+                    unwatch(v)
+                end
             end
         end
     })
