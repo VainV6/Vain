@@ -1208,6 +1208,7 @@ run(function()
 	})
 	DotStyle = Radar:CreateDropdown({
 		Name = 'Dot Style',
+		Tooltip = 'Shape used for player dots on the radar',
 		List = { 'Circles', 'Squares' },
 		Function = function(val)
 			for _, dot in Reference do
@@ -1217,6 +1218,7 @@ run(function()
 	})
 	PlayerColor = Radar:CreateColorSlider({
 		Name = 'Player Color',
+		Tooltip = 'Fallback dot color when a team color is unavailable',
 		Function = function(hue, sat, val)
 			for ent, dot in Reference do
 				dot.BackgroundColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(hue, sat, val)
@@ -1260,12 +1262,14 @@ run(function()
 	barcorner.Parent = bar
 	Radar:CreateColorSlider({
 		Name = 'Bar Color',
+		Tooltip = 'Color of the compass bar on the radar',
 		Function = function(hue, sat, val)
 			bar.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 		end,
 	})
 	Radar:CreateToggle({
 		Name = 'Show Background',
+		Tooltip = 'Shows the radar background panel',
 		Default = true,
 		Function = function(callback)
 			bkg.BackgroundTransparency = callback and 0.5 or 1
@@ -1275,6 +1279,7 @@ run(function()
 	})
 	Radar:CreateToggle({
 		Name = 'Show Cross',
+		Tooltip = 'Shows the crosshair lines through the center of the radar',
 		Default = true,
 		Function = function(callback)
 			line1.BackgroundTransparency = callback and 0.5 or 1
@@ -1283,6 +1288,7 @@ run(function()
 	})
 	Clamp = Radar:CreateToggle({
 		Name = 'Clamp Radar',
+		Tooltip = 'Keeps player dots clamped to the edge of the radar instead of hiding them out of range',
 		Default = true,
 	})
 end)
@@ -1374,6 +1380,7 @@ run(function()
 	})
 	FontOption = SessionInfo:CreateFont({
 		Name = 'Font',
+		Tooltip = 'Font used for the session info text',
 		Blacklist = 'Arial',
 	})
 	Hide = SessionInfo:CreateTextList({
@@ -1386,6 +1393,7 @@ run(function()
 	})
 	SessionInfo:CreateColorSlider({
 		Name = 'Background Color',
+		Tooltip = 'Background color of the session info panel',
 		DefaultValue = 0,
 		DefaultOpacity = 0.5,
 		Function = function(hue, sat, val, opacity)
@@ -1395,6 +1403,7 @@ run(function()
 	})
 	BorderColor = SessionInfo:CreateColorSlider({
 		Name = 'Border Color',
+		Tooltip = 'Color of the session info panel border',
 		Function = function(hue, sat, val, opacity)
 			infostroke.Color = Color3.fromHSV(hue, sat, val)
 			infostroke.Transparency = 1 - opacity
@@ -1404,12 +1413,14 @@ run(function()
 	})
 	TextSize = SessionInfo:CreateSlider({
 		Name = 'Text Size',
+		Tooltip = 'Size of the session info text',
 		Min = 1,
 		Max = 30,
 		Default = 16,
 	})
 	Title = SessionInfo:CreateToggle({
 		Name = 'Title',
+		Tooltip = 'Shows a "Session Info" title above the entries',
 		Function = function(callback)
 			if TitleOffset.Object then
 				TitleOffset.Object.Visible = callback
@@ -1419,11 +1430,13 @@ run(function()
 	})
 	TitleOffset = SessionInfo:CreateToggle({
 		Name = 'Offset',
+		Tooltip = 'Adds spacing below the title',
 		Default = true,
 		Darker = true,
 	})
 	SessionInfo:CreateToggle({
 		Name = 'Border',
+		Tooltip = 'Shows a border around the session info panel',
 		Function = function(callback)
 			infostroke.Enabled = callback
 			BorderColor.Object.Visible = callback
@@ -1431,6 +1444,7 @@ run(function()
 	})
 	Custom = SessionInfo:CreateToggle({
 		Name = 'Add custom text',
+		Tooltip = 'Appends the custom text below to the session info',
 		Function = function(enabled)
 			CustomBox.Object.Visible = enabled
 		end,
@@ -1588,10 +1602,12 @@ run(function()
     Targets = AimAssist:CreateTargets({ Players = true })
     Part = AimAssist:CreateDropdown({
     	Name = 'Part',
+    	Tooltip = 'Body part aimed at',
     	List = { 'RootPart', 'Head' },
     })
     FOV = AimAssist:CreateSlider({
     	Name = 'FOV',
+    	Tooltip = 'Maximum field of view radius to search for targets in',
     	Min = 0,
     	Max = 1000,
     	Default = 100,
@@ -1603,12 +1619,14 @@ run(function()
     })
     Speed = AimAssist:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'How fast the camera aims towards the target',
     	Min = 0,
     	Max = 30,
     	Default = 15,
     })
     AimAssist:CreateToggle({
     	Name = 'Range Circle',
+    	Tooltip = 'Draws a circle on screen showing the FOV range',
     	Function = function(callback)
     		if callback then
     			CircleObject = Drawing.new('Circle')
@@ -1632,6 +1650,7 @@ run(function()
     })
     CircleColor = AimAssist:CreateColorSlider({
     	Name = 'Circle Color',
+    	Tooltip = 'Color of the FOV range circle',
     	Function = function(hue, sat, val)
     		if CircleObject then
     			CircleObject.Color = Color3.fromHSV(hue, sat, val)
@@ -1642,6 +1661,7 @@ run(function()
     })
     CircleTransparency = AimAssist:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the FOV range circle',
     	Min = 0,
     	Max = 1,
     	Decimal = 10,
@@ -1656,6 +1676,7 @@ run(function()
     })
     CircleFilled = AimAssist:CreateToggle({
     	Name = 'Circle Filled',
+    	Tooltip = 'Fills in the FOV range circle instead of just an outline',
     	Function = function(callback)
     		if CircleObject then
     			CircleObject.Filled = callback
@@ -1666,6 +1687,7 @@ run(function()
     })
     RightClick = AimAssist:CreateToggle({
     	Name = 'Require right click',
+    	Tooltip = 'Only aim assists while holding right click',
     	Function = function()
     		if AimAssist.Enabled then
     			AimAssist:Toggle()
@@ -1675,6 +1697,7 @@ run(function()
     })
     ShowTarget = AimAssist:CreateToggle({
     	Name = 'Show target info',
+    	Tooltip = 'Displays info about the currently targeted player',
     })
 end)
 
@@ -1801,6 +1824,7 @@ run(function()
     })
     Value = Reach:CreateSlider({
     	Name = 'Range',
+    	Tooltip = 'Extra reach distance added to your tool',
     	Min = 0,
     	Max = 2,
     	Decimal = 10,
@@ -1810,6 +1834,7 @@ run(function()
     })
     Chance = Reach:CreateSlider({
     	Name = 'Chance',
+    	Tooltip = 'Chance to report a hit when using TouchInterest mode',
     	Min = 0,
     	Max = 100,
     	Default = 100,
@@ -2096,13 +2121,15 @@ run(function()
     })
     MethodRay = SilentAim:CreateDropdown({
     	Name = 'Raycast Type',
+    	Tooltip = 'FilterType used for the raycast',
     	List = { 'All', 'Exclude', 'Include' },
     	Darker = true,
     	Visible = false,
     })
-    IgnoredScripts = SilentAim:CreateTextList({ Name = 'Ignored Scripts' })
+    IgnoredScripts = SilentAim:CreateTextList({ Name = 'Ignored Scripts', Tooltip = 'Scripts to ignore when hooking raycast methods' })
     Range = SilentAim:CreateSlider({
     	Name = 'Range',
+    	Tooltip = 'Maximum distance to silent aim at',
     	Min = 1,
     	Max = 1000,
     	Default = 150,
@@ -2117,6 +2144,7 @@ run(function()
     })
     HitChance = SilentAim:CreateSlider({
     	Name = 'Hit Chance',
+    	Tooltip = 'Chance to register a hit on the target',
     	Min = 0,
     	Max = 100,
     	Default = 85,
@@ -2124,6 +2152,7 @@ run(function()
     })
     HeadshotChance = SilentAim:CreateSlider({
     	Name = 'Headshot Chance',
+    	Tooltip = 'Chance to aim for a headshot instead of the body',
     	Min = 0,
     	Max = 100,
     	Default = 65,
@@ -2131,6 +2160,7 @@ run(function()
     })
     AutoFire = SilentAim:CreateToggle({
     	Name = 'AutoFire',
+    	Tooltip = 'Automatically fires at the target instead of requiring you to click',
     	Function = function(callback)
     		AutoFireShootDelay.Object.Visible = callback
     		AutoFireMode.Object.Visible = callback
@@ -2139,6 +2169,7 @@ run(function()
     })
     AutoFireShootDelay = SilentAim:CreateSlider({
     	Name = 'Next Shot Delay',
+    	Tooltip = 'Delay between automatic shots',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -2169,9 +2200,10 @@ run(function()
     	Visible = false,
     	Darker = true,
     })
-    Wallbang = SilentAim:CreateToggle({ Name = 'Wallbang' })
+    Wallbang = SilentAim:CreateToggle({ Name = 'Wallbang', Tooltip = 'Allows shots to register through walls' })
     SilentAim:CreateToggle({
     	Name = 'Range Circle',
+    	Tooltip = 'Draws a circle on screen showing the aim range',
     	Function = function(callback)
     		if callback then
     			CircleObject = Drawing.new('Circle')
@@ -2195,6 +2227,7 @@ run(function()
     })
     CircleColor = SilentAim:CreateColorSlider({
     	Name = 'Circle Color',
+    	Tooltip = 'Color of the aim range circle',
     	Function = function(hue, sat, val)
     		if CircleObject then
     			CircleObject.Color = Color3.fromHSV(hue, sat, val)
@@ -2205,6 +2238,7 @@ run(function()
     })
     CircleTransparency = SilentAim:CreateSlider({
     	Name = 'Transparency',
+    	Tooltip = 'Transparency of the aim range circle',
     	Min = 0,
     	Max = 1,
     	Decimal = 10,
@@ -2219,6 +2253,7 @@ run(function()
     })
     CircleFilled = SilentAim:CreateToggle({
     	Name = 'Circle Filled',
+    	Tooltip = 'Fills in the aim range circle instead of just an outline',
     	Function = function(callback)
     		if CircleObject then
     			CircleObject.Filled = callback
@@ -2229,6 +2264,7 @@ run(function()
     })
     Projectile = SilentAim:CreateToggle({
     	Name = 'Projectile',
+    	Tooltip = 'Accounts for projectile speed and gravity when calculating the aim direction',
     	Function = function(callback)
     		ProjectileSpeed.Object.Visible = callback
     		ProjectileGravity.Object.Visible = callback
@@ -2236,6 +2272,7 @@ run(function()
     })
     ProjectileSpeed = SilentAim:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Assumed travel speed of the projectile',
     	Min = 1,
     	Max = 1000,
     	Default = 1000,
@@ -2247,6 +2284,7 @@ run(function()
     })
     ProjectileGravity = SilentAim:CreateSlider({
     	Name = 'Gravity',
+    	Tooltip = 'Assumed gravity applied to the projectile',
     	Min = 0,
     	Max = 192.6,
     	Default = 192.6,
@@ -2497,6 +2535,7 @@ run(function()
     })
     Distance = TriggerBot:CreateSlider({
     	Name = 'Distance',
+    	Tooltip = 'Maximum distance to trigger shots at',
     	Min = 0,
     	Max = 1000,
     	Default = 1000,
@@ -2624,6 +2663,7 @@ run(function()
     end
     Material = AntiFall:CreateDropdown({
     	Name = 'Material',
+    	Tooltip = 'Material of the anti-fall part',
     	List = materials,
     	Darker = true,
     	Function = function(val)
@@ -2634,6 +2674,7 @@ run(function()
     })
     Color = AntiFall:CreateColorSlider({
     	Name = 'Color',
+    	Tooltip = 'Color of the anti-fall part',
     	DefaultOpacity = 0.5,
     	Darker = true,
     	Function = function(h, s, v, o)
@@ -2685,6 +2726,7 @@ run(function()
     
     Desync:CreateButton({
         Name = 'Resync',
+        Tooltip = 'Manually resyncs your position with the server',
         Function = resync
     })
 end)
@@ -2882,6 +2924,7 @@ run(function()
     })
     FloatMode = Fly:CreateDropdown({
     	Name = 'Float Mode',
+    	Tooltip = 'Method used to keep you hovering vertically while flying',
     	List = { 'Velocity', 'Impulse', 'CFrame', 'Bounce', 'Floor', 'Jump', 'TP' },
     	Function = function(val)
     		WallCheck.Object.Visible = Mode.Value == 'CFrame' or Mode.Value == 'TP' or val == 'CFrame' or val == 'TP'
@@ -2913,6 +2956,7 @@ run(function()
     end
     State = Fly:CreateDropdown({
     	Name = 'Humanoid State',
+    	Tooltip = 'Forces your humanoid into this state while flying',
     	List = states,
     })
     MoveMethod = Fly:CreateDropdown({
@@ -2927,6 +2971,7 @@ run(function()
     })
     Options.Value = Fly:CreateSlider({
     	Name = 'Speed',
+    	Tooltip = 'Horizontal flying speed',
     	Min = 1,
     	Max = 150,
     	Default = 50,
@@ -2936,6 +2981,7 @@ run(function()
     })
     VerticalValue = Fly:CreateSlider({
     	Name = 'Vertical Speed',
+    	Tooltip = 'Vertical (up/down) flying speed',
     	Min = 1,
     	Max = 150,
     	Default = 50,
@@ -2945,6 +2991,7 @@ run(function()
     })
     Options.TPFrequency = Fly:CreateSlider({
     	Name = 'TP Frequency',
+    	Tooltip = 'How often to teleport when using TP speed mode',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -2956,6 +3003,7 @@ run(function()
     })
     Options.PulseLength = Fly:CreateSlider({
     	Name = 'Pulse Length',
+    	Tooltip = 'Duration of each speed burst when using Pulse mode',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -2967,6 +3015,7 @@ run(function()
     })
     Options.PulseDelay = Fly:CreateSlider({
     	Name = 'Pulse Delay',
+    	Tooltip = 'Delay between speed bursts when using Pulse mode',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -2978,6 +3027,7 @@ run(function()
     })
     BounceLength = Fly:CreateSlider({
     	Name = 'Bounce Length',
+    	Tooltip = 'Height of each bounce when using Bounce float mode',
     	Min = 0,
     	Max = 30,
     	Darker = true,
@@ -2988,6 +3038,7 @@ run(function()
     })
     BounceDelay = Fly:CreateSlider({
     	Name = 'Bounce Delay',
+    	Tooltip = 'Delay between bounces when using Bounce float mode',
     	Min = 0,
     	Max = 1,
     	Decimal = 100,
@@ -2999,6 +3050,7 @@ run(function()
     })
     FloatTPGround = Fly:CreateSlider({
     	Name = 'Ground',
+    	Tooltip = 'Time spent teleported to the ground when using TP float mode',
     	Min = 0,
     	Max = 1,
     	Decimal = 10,
@@ -3011,6 +3063,7 @@ run(function()
     })
     FloatTPAir = Fly:CreateSlider({
     	Name = 'Air',
+    	Tooltip = 'Time spent in the air when using TP float mode',
     	Min = 0,
     	Max = 5,
     	Decimal = 10,
@@ -3023,6 +3076,7 @@ run(function()
     })
     WallCheck = Fly:CreateToggle({
     	Name = 'Wall Check',
+    	Tooltip = 'Raycasts to avoid flying through walls when using CFrame/TP modes',
     	Default = true,
     	Darker = true,
     	Visible = false,
@@ -3039,6 +3093,7 @@ run(function()
     })
     CustomProperties = Fly:CreateToggle({
     	Name = 'Custom Properties',
+    	Tooltip = 'Adjusts friction/movement physics properties while flying',
     	Function = function()
     		if Fly.Enabled then
     			Fly:Toggle()
@@ -3111,6 +3166,7 @@ run(function()
     })
     Value = HighJump:CreateSlider({
     	Name = 'Velocity',
+    	Tooltip = 'How high the jump launches you',
     	Min = 1,
     	Max = 150,
     	Default = 50,
@@ -3120,6 +3176,7 @@ run(function()
     })
     AutoDisable = HighJump:CreateToggle({
     	Name = 'Auto Disable',
+    	Tooltip = 'Automatically disables the module after each jump instead of holding space to repeat',
     	Default = true,
     })
 end)
@@ -3167,10 +3224,12 @@ run(function()
     Targets = HitBoxes:CreateTargets({ Players = true })
     TargetPart = HitBoxes:CreateDropdown({
     	Name = 'Part',
+    	Tooltip = 'Body part to expand the hitbox of',
     	List = { 'RootPart', 'Head' },
     })
     Expand = HitBoxes:CreateSlider({
     	Name = 'Expand amount',
+    	Tooltip = 'How much to expand the hitbox size by',
     	Min = 0,
     	Max = 2,
     	Decimal = 10,
@@ -3237,10 +3296,12 @@ run(function()
     })
     Mode = InfiniteJump:CreateDropdown({
     	Name = 'Mode',
+    	Tooltip = 'Jump - Re-triggers the jump state\nVelocity - Applies upward velocity on each jump',
     	List = { 'Jump', 'Velocity' },
     })
     InfiniteJump:CreateToggle({
     	Name = 'TP Down',
+    	Tooltip = 'Teleports you back down after reaching the peak of the jump',
     })
 end)
 
