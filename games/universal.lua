@@ -10342,6 +10342,7 @@ run(function()
     })
     OutlineColor = CharacterOutline:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Color of the character outline',
         Function = function()
             outline.OutlineColor = Color3.fromHSV(OutlineColor.Hue, OutlineColor.Sat, OutlineColor.Value)
         end,
@@ -10391,9 +10392,10 @@ run(function()
             end
         end,
     })
-    TrailDistance = Trails:CreateSlider({ Name = 'Distance', Min = 3, Max = 10, Default = 7, Function = function(val) TrailDistance.Value = val end })
+    TrailDistance = Trails:CreateSlider({ Name = 'Distance', Tooltip = 'Distance traveled between each trail part spawning', Min = 3, Max = 10, Default = 7, Function = function(val) TrailDistance.Value = val end })
     TrailColor = Trails:CreateColorSlider({
         Name = 'Color',
+        Tooltip = 'Color of the trail particles',
         Function = function()
             for _, v in trailparts do
                 if v and v.Parent then v.Color = Color3.fromHSV(TrailColor.Hue, TrailColor.Sat, TrailColor.Value) end
@@ -10517,11 +10519,11 @@ run(function()
             end
         end,
     })
-    TrailDistance = WaveTrails:CreateSlider({ Name = 'Distance',         Min = 3, Max = 10, Default = 7, Function = function(val) TrailDistance.Value = val end })
-    TrailColorIn  = WaveTrails:CreateColorSlider({ Name = 'Color',       Function = function() end })
-    TrailColorOut = WaveTrails:CreateColorSlider({ Name = 'Fade Color',  Function = function() end })
-    WaveTrails:CreateToggle({ Name = 'Wave Effect',      Default = true, Function = function(val) EnableWave.Value      = val end })
-    WaveTrails:CreateToggle({ Name = 'Explosion Effect', Default = true, Function = function(val) EnableExplosion.Value = val end })
+    TrailDistance = WaveTrails:CreateSlider({ Name = 'Distance', Tooltip = 'Distance traveled between each trail part spawning', Min = 3, Max = 10, Default = 7, Function = function(val) TrailDistance.Value = val end })
+    TrailColorIn  = WaveTrails:CreateColorSlider({ Name = 'Color', Tooltip = 'Starting color of each trail part', Function = function() end })
+    TrailColorOut = WaveTrails:CreateColorSlider({ Name = 'Fade Color', Tooltip = 'Color each trail part fades to before disappearing', Function = function() end })
+    WaveTrails:CreateToggle({ Name = 'Wave Effect', Tooltip = 'Makes trail parts bounce along the ground', Default = true, Function = function(val) EnableWave.Value      = val end })
+    WaveTrails:CreateToggle({ Name = 'Explosion Effect', Tooltip = 'Spawns a small particle burst on each bounce', Default = true, Function = function(val) EnableExplosion.Value = val end })
 end)
 
 -- ── MouseMod ──────────────────────────────────────────────────────────────────
@@ -10561,12 +10563,14 @@ run(function()
     })
     MouseDropdown = MouseMod:CreateDropdown({
         Name    = 'Mouse Icon',
+        Tooltip = 'Preset cursor icon to use',
         List    = { 'CS:GO', 'Old Roblox Mouse', 'dx9ware', 'Aimbot', 'Triangle', 'Arrow' },
         Default = 'Arrow',
         Function = function() end,
     })
     CustomMouseIcon = MouseMod:CreateToggle({
         Name     = 'Custom Icon',
+        Tooltip  = 'Uses a custom image asset ID instead of a preset icon',
         Function = function() end,
     })
     CustomIcon = MouseMod:CreateTextBox({
