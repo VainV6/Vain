@@ -427,19 +427,14 @@ local function createVainCooldownBar(barColor)
 	UI.AnchorPoint = Vector2.new(0.5, 1)
 	UI.Size = UDim2.new(0, 260, 0, 16)
 	UI.Position = UDim2.fromOffset(0, -46)
-	UI.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-	UI.BackgroundTransparency = 0.15
+	UI.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
+	UI.BackgroundTransparency = 0.05
 	UI.BorderSizePixel = 0
 	UI.Visible = false
 	UI.Parent = vain.gui
 	local bgCorner = Instance.new('UICorner')
 	bgCorner.CornerRadius = UDim.new(0, 6)
 	bgCorner.Parent = UI
-	local bgStroke = Instance.new('UIStroke')
-	bgStroke.Color = Color3.fromRGB(0, 0, 0)
-	bgStroke.Transparency = 0.35
-	bgStroke.Thickness = 1.5
-	bgStroke.Parent = UI
 
 	local fillPad = Instance.new('Frame')
 	fillPad.Name = 'FillPad'
@@ -451,12 +446,25 @@ local function createVainCooldownBar(barColor)
 	local fill = Instance.new('Frame')
 	fill.Name = 'Fill'
 	fill.Size = UDim2.fromScale(1, 1)
-	fill.BackgroundColor3 = barColor or Color3.fromRGB(90, 170, 255)
+	fill.BackgroundColor3 = barColor or Color3.fromHSV(vain.GUIColor.Hue, vain.GUIColor.Sat, vain.GUIColor.Value)
 	fill.BorderSizePixel = 0
 	fill.Parent = fillPad
 	local fillCorner = Instance.new('UICorner')
 	fillCorner.CornerRadius = UDim.new(0, 4)
 	fillCorner.Parent = fill
+
+	local valueLabel = Instance.new('TextLabel')
+	valueLabel.Name = 'Value'
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.Size = UDim2.fromScale(1, 1)
+	valueLabel.Text = ''
+	valueLabel.TextColor3 = Color3.new(1, 1, 1)
+	valueLabel.TextSize = 12
+	valueLabel.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold)
+	valueLabel.TextStrokeColor3 = Color3.new()
+	valueLabel.TextStrokeTransparency = 0.5
+	valueLabel.ZIndex = 2
+	valueLabel.Parent = UI
 
 	local lastPosUpdate = 0
 	local api = {}
@@ -472,12 +480,15 @@ local function createVainCooldownBar(barColor)
 			UI.Size = UDim2.new(0, math.max(container.AbsoluteSize.X * 0.62, 120), 0, 16)
 			UI.Position = UDim2.fromOffset(
 				container.AbsolutePosition.X + (container.AbsoluteSize.X / 2),
-				(container.AbsolutePosition.Y + guiInset) - 10
+				(container.AbsolutePosition.Y + guiInset) - 18
 			)
 		end
 	end
-	function api.SetProgress(frac)
+	function api.SetProgress(frac, value)
 		fill.Size = UDim2.new(math.clamp(frac, 0, 1), 0, 1, 0)
+		if value then
+			valueLabel.Text = string.format('%.1f', math.max(value, 0))
+		end
 	end
 	function api.Show() UI.Visible = true end
 	function api.Hide() UI.Visible = false end
@@ -3301,7 +3312,7 @@ run(function()
     					else
     						jumpVoidCooldown = 2.5
     					end
-    					jumpCooldownBar.SetProgress(jumpVoidCooldown / 2.5)
+    					jumpCooldownBar.SetProgress(jumpVoidCooldown / 2.5, jumpVoidCooldown)
     				end))
     			end
     		else
