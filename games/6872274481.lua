@@ -21519,8 +21519,8 @@ run(function()
         if #availableContracts == 0 then return false end
         
         for _, contract in pairs(availableContracts) do
-            if contract.target == targetPlayer then
-                bedwars.Client:Get(remotes.BloodAssassinSelectContract):SendToServer({
+            if contract.target and contract.target.Name == targetPlayer.Name then
+                bedwars.Client:Get('BloodAssassinSelectContract'):SendToServer({
                     contractId = contract.id
                 })
                 lastContractSelect = tick()
