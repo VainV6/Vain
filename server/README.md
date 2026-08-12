@@ -70,6 +70,72 @@ Give each buyer `entrypoint.lua` with their `VAIN_KEY` filled in. The key binds
 to the first machine's HWID; a leaked key won't work elsewhere until you
 `reset-hwid`.
 
+## Discord whitelist bot (ranks + self-service commands)
+
+A buyer's **Discord role is their rank**. Instead of staff manually running
+`keys.mjs new` and DMing a key, a member with a qualifying rank role runs
+`/whitelist edit <roblox account>` themselves and gets a key back the same way
+`keys.mjs new` would give one -- the key stays the real credential, the
+Roblox account you give the bot is only ever used for display/lookup, never
+trusted as authentication (a Roblox UserId is public, not a secret). Every
+delivery request also live-checks that the key's linked Discord user still
+holds a qualifying role (cached 60s), so removing the role kills access
+automatically -- no manual revoke needed.
+
+### One-time Discord setup
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) →
+   **New Application**.
+2. **Bot** tab → Add Bot → copy the token:
+   ```sh
+   wrangler secret put DISCORD_BOT_TOKEN
+   ```
+3. **General Information** tab → copy **Application ID** and **Public Key**
+   into `wrangler.toml`'s `[vars]` block (`DISCORD_APPLICATION_ID`,
+   `DISCORD_PUBLIC_KEY`).
+4. **OAuth2 → URL Generator** → scopes `bot` + `applications.commands` (no
+   elevated bot permissions needed -- rank checks are plain REST calls with
+   the bot token, not gateway intents). Use the generated URL to invite the
+   bot to your server.
+5. With Developer Mode on in Discord, copy: your server's ID
+   (`DISCORD_GUILD_ID`), each rank role's ID (into `[vars.RANK_ROLES]`, and
+   list the tier names in priority order in `RANK_ORDER`), and your staff
+   role's ID (`DISCORD_STAFF_ROLE_ID`).
+6. **Deploy first, wire the endpoint second** -- the Interactions Endpoint URL
+   can't be saved until the Worker is live to answer Discord's signature
+   handshake:
+   ```sh
+   wrangler deploy
+   ```
+   Then in the Developer Portal → **General Information** → **Interactions
+   Endpoint URL**, set `https://<worker>.workers.dev/discord/interactions` and
+   save. Discord fires a signed PING at save time and won't save until it gets
+   a valid signed PONG back.
+7. Register the commands (guild-scoped, so they show up in seconds):
+   ```sh
+   export DISCORD_APPLICATION_ID=... DISCORD_GUILD_ID=... DISCORD_BOT_TOKEN=...
+   npm run register-commands
+   ```
+
+### Commands
+
+Self-service (open to anyone, rank-gated at invocation):
+- `/whitelist edit <roblox_account>` -- link/re-link your Roblox account,
+  returns your key. Re-running it rebinds the same key to a new account
+  rather than minting a second one -- one Roblox account per Discord user.
+- `/whitelist view` -- your current binding, HWID status, live rank.
+- `/whitelist remove` -- unlink and revoke your key.
+
+Staff-only (`/whitelistadmin`, gated by Discord permissions + your staff role):
+- `/whitelistadmin lookup <target>` -- inspect by mention, Roblox username, or key.
+- `/whitelistadmin resethwid <target>` -- let a buyer move machines.
+- `/whitelistadmin force <discord_user> <roblox_account>` -- override a
+  binding regardless of rank, can steal an already-claimed Roblox account.
+- `/whitelistadmin ban <target>` -- hard-block a record; survives re-binding.
+
+Admin-issued keys from `keys.mjs` keep working exactly as before (no
+`discordUserId` on the record means the rank check is skipped entirely).
+
 ## Honest limits
 
 An executor must be handed runnable Lua, so someone hooking `loadstring` /

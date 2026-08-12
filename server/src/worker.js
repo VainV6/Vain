@@ -18,7 +18,16 @@
  *   GET  /admin/keys/<key>                              -> inspect a key
  *   DELETE /admin/keys/<key>                            -> revoke a key
  *   POST /admin/keys/<key>/reset-hwid                   -> unbind HWID (transfer)
+ *
+ * Discord whitelist bot (see ./discord.js):
+ *   POST /discord/interactions -> Discord slash-command interactions endpoint.
+ *   A buyer's Discord ROLE is their RANK; /whitelist edit self-issues a key
+ *   exactly like the admin routes above, but gated on holding a qualifying
+ *   role, and every delivery request additionally re-checks that role live
+ *   (cached briefly) so losing the role kills access with no manual revoke.
  */
+
+import { handleDiscordInteraction, resolveRank } from "./discord.js";
 
 const GH_API = "https://api.github.com";
 const REPO = "VainV6/Vain";
@@ -83,7 +92,7 @@ function getCreds(req, url) {
 }
 
 // Returns { ok:true } or { ok:false, reason }
-async function checkAuth(env, key, hwid) {
+async function checkAuth(env, key, hwid, ctx) {
 	if (!key) return { ok: false, reason: "no key" };
 	const raw = await env.KEYS.get(`key:${key}`);
 	if (!raw) return { ok: false, reason: "invalid key" };
@@ -91,6 +100,7 @@ async function checkAuth(env, key, hwid) {
 	let rec;
 	try { rec = JSON.parse(raw); } catch { return { ok: false, reason: "corrupt key record" }; }
 
+	if (rec.banned) return { ok: false, reason: "account banned" };
 	if (rec.revoked) return { ok: false, reason: "key revoked" };
 	if (rec.expires && Date.now() > rec.expires) return { ok: false, reason: "key expired" };
 
@@ -104,9 +114,17 @@ async function checkAuth(env, key, hwid) {
 		return { ok: false, reason: "hwid mismatch (key locked to another machine)" };
 	}
 
+	// Discord-bound keys (self-service/staff-force) must currently hold a
+	// qualifying rank role -- legacy admin-issued keys have no discordUserId
+	// and skip this, unchanged from before.
+	if (rec.discordUserId) {
+		const rank = await resolveRank(env, rec.discordUserId, ctx);
+		if (!rank.tier) return { ok: false, reason: "discord rank required (role removed or left server)" };
+	}
+
 	rec.lastSeen = Date.now();
-	// Fire-and-forget lastSeen update (don't block the response).
-	env.KEYS.put(`key:${key}`, JSON.stringify(rec));
+	const put = env.KEYS.put(`key:${key}`, JSON.stringify(rec));
+	if (ctx) ctx.waitUntil(put); else await put;
 	return { ok: true, rec };
 }
 
@@ -184,8 +202,14 @@ export default {
 			return handleAdmin(req, env, url);
 		}
 
+		// Discord interactions carry their own auth (Ed25519 signature), not
+		// the key/HWID scheme below -- must be checked before that gate.
+		if (url.pathname === "/discord/interactions" && req.method === "POST") {
+			return handleDiscordInteraction(req, env, ctx);
+		}
+
 		const { key, hwid } = getCreds(req, url);
-		const auth = await checkAuth(env, key, hwid);
+		const auth = await checkAuth(env, key, hwid, ctx);
 		if (!auth.ok) return denyLua(auth.reason);
 
 		// /sha -> latest commit sha (plain text), used to pin downloads.

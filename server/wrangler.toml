@@ -11,8 +11,28 @@ binding = "KEYS"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 # Secrets (DO NOT put these here -- set them with `wrangler secret put`):
-#   GITHUB_PAT   : fine-grained PAT with Contents:Read on VainV6/Vain (repo private)
-#   ADMIN_TOKEN  : random string you use for the /admin/* routes
+#   GITHUB_PAT       : fine-grained PAT with Contents:Read on VainV6/Vain (repo private)
+#   ADMIN_TOKEN      : random string you use for the /admin/* routes
+#   DISCORD_BOT_TOKEN: from the Discord Developer Portal's Bot tab
 #
 #   npx wrangler secret put GITHUB_PAT
 #   npx wrangler secret put ADMIN_TOKEN
+#   npx wrangler secret put DISCORD_BOT_TOKEN
+
+# Discord whitelist bot config. None of these are secret (public key, guild/role
+# ids) -- see server/README.md for where to find each one.
+[vars]
+DISCORD_PUBLIC_KEY = "REPLACE_WITH_APPLICATION_PUBLIC_KEY"
+DISCORD_APPLICATION_ID = "REPLACE_WITH_APPLICATION_ID"
+DISCORD_GUILD_ID = "REPLACE_WITH_GUILD_ID"
+DISCORD_STAFF_ROLE_ID = "REPLACE_WITH_STAFF_ROLE_ID"
+
+# Priority order, highest tier first -- resolveRank() picks the first entry
+# here that the member holds a mapped role for.
+RANK_ORDER = ["owner", "elite", "vip"]
+
+# role id -> tier name. Add one line per rank role in your server.
+[vars.RANK_ROLES]
+REPLACE_WITH_VIP_ROLE_ID = "vip"
+REPLACE_WITH_ELITE_ROLE_ID = "elite"
+REPLACE_WITH_OWNER_ROLE_ID = "owner"
