@@ -76,7 +76,60 @@ local function waitForChildOfType(obj, name, timeout, prop)
 	return returned
 end
 
+-- ── rank immunity ────────────────────────────────────────────────────────────
+-- A Discord role is a player's rank (Free/unbound = 0). A lower rank's
+-- targeting modules (Killaura, ESP, aimbots, ...) must never see a higher-rank
+-- player as a valid target -- enforced once here in targetCheck so every
+-- module funnelling through EntityMouse/EntityPosition/AllPosition's shared
+-- `.Targetable` gate gets it for free. This is a courtesy protection for
+-- ranked players, not a security boundary, so it fails OPEN (treated as Free)
+-- on any cache-miss/pending-lookup/network error -- a Worker hiccup must never
+-- block normal targeting for everyone.
+local RANK_API = 'https://vain.baconcrafft.workers.dev'
+local RANK_LEVEL = {owner = 2, priviliged = 1}
+local req = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request)
+local httpService = cloneref(game:GetService('HttpService'))
+
+entitylib.localRankLevel = 0
+
+local rankLevelCache = {}
+local rankPending = {}
+
+local function resolveRankLevel(userId, onResolved)
+	if rankLevelCache[userId] ~= nil then return rankLevelCache[userId] end
+	if not rankPending[userId] and req then
+		rankPending[userId] = true
+		task.spawn(function()
+			local level = 0
+			local ok, res = pcall(req, {
+				Url = RANK_API .. '/rank/' .. tostring(userId),
+				Method = 'GET',
+			})
+			if ok and res and (res.StatusCode == 200 or res.Success) and res.Body then
+				local decOk, decoded = pcall(httpService.JSONDecode, httpService, res.Body)
+				if decOk and decoded and decoded.tier then
+					level = RANK_LEVEL[decoded.tier] or 0
+				end
+			end
+			rankLevelCache[userId] = level
+			rankPending[userId] = nil
+			if onResolved then onResolved(level) end
+		end)
+	end
+	return 0 -- fail-open: Free until resolved
+end
+
 entitylib.targetCheck = function(ent)
+	if ent.Player and not ent.NPC then
+		local theirLevel = resolveRankLevel(ent.Player.UserId, function(level)
+			if level == 0 then return end
+			local entity = entitylib.getEntity(ent.Character)
+			if entity and entity.Targetable ~= entitylib.targetCheck(entity) then
+				entitylib.refreshEntity(entity.Character, entity.Player)
+			end
+		end)
+		if theirLevel > entitylib.localRankLevel then return false end
+	end
 	if ent.TeamCheck then
 		return ent:TeamCheck()
 	end
@@ -279,6 +332,10 @@ entitylib.addEntity = function(char, plr, teamfunc)
 			if plr == lplr then
 				entitylib.character = entity
 				entitylib.isAlive = true
+				resolveRankLevel(plr.UserId, function(level)
+					entitylib.localRankLevel = level
+					entitylib.refresh()
+				end)
 				entitylib.Events.LocalAdded:Fire(entity)
 			else
 				entity.Targetable = entitylib.targetCheck(entity)

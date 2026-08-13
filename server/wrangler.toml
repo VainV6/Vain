@@ -2,37 +2,37 @@ name = "vain"
 main = "src/worker.js"
 compatibility_date = "2024-11-01"
 
-# KV namespace holding the key -> {hwid, expires, revoked, ...} records.
-# Create it once with:
-#   npx wrangler kv namespace create KEYS
-# then paste the returned id below.
+# KV namespace holding two things: discord:<id>/roblox:<id> whitelist bindings,
+# and rankcache:<id> (the 60s-cached live Discord role check). Vain's file
+# delivery no longer goes through this Worker at all (see root README.md) --
+# nothing here gates loading, it's just bot + rank-lookup state.
 [[kv_namespaces]]
 binding = "KEYS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "2a990242fbdf4b4aac895337ea05cb10"
 
 # Secrets (DO NOT put these here -- set them with `wrangler secret put`):
-#   GITHUB_PAT       : fine-grained PAT with Contents:Read on VainV6/Vain (repo private)
-#   ADMIN_TOKEN      : random string you use for the /admin/* routes
-#   DISCORD_BOT_TOKEN: from the Discord Developer Portal's Bot tab
+#   DISCORD_BOT_TOKEN: from the Discord Developer Portal's Bot tab -- required,
+#                       used for every guild-member/rank REST call.
 #
-#   npx wrangler secret put GITHUB_PAT
-#   npx wrangler secret put ADMIN_TOKEN
 #   npx wrangler secret put DISCORD_BOT_TOKEN
+#
+# GITHUB_PAT / ADMIN_TOKEN from the old paid-key delivery gate are no longer
+# read by any code in this Worker -- safe to leave set or `wrangler secret
+# delete` them, doesn't matter either way.
 
-# Discord whitelist bot config. None of these are secret (public key, guild/role
-# ids) -- see server/README.md for where to find each one.
+# Discord bot config. None of these are secret (public key, guild/role ids) --
+# see server/README.md for where to find each one.
 [vars]
-DISCORD_PUBLIC_KEY = "REPLACE_WITH_APPLICATION_PUBLIC_KEY"
-DISCORD_APPLICATION_ID = "REPLACE_WITH_APPLICATION_ID"
-DISCORD_GUILD_ID = "REPLACE_WITH_GUILD_ID"
-DISCORD_STAFF_ROLE_ID = "REPLACE_WITH_STAFF_ROLE_ID"
+DISCORD_PUBLIC_KEY = "50e0976c909bbfaa9f28dc3888e48880d6e97d3ea25ae69fce2fe34388bc12a4"
+DISCORD_APPLICATION_ID = "1537107643666014229"
+DISCORD_GUILD_ID = "1537108297763651714"
 
 # Priority order, highest tier first -- resolveRank() picks the first entry
-# here that the member holds a mapped role for.
-RANK_ORDER = ["owner", "elite", "vip"]
+# here that the member holds a mapped role for. Free/unbound = not in this
+# list at all, treated as rank level 0 everywhere.
+RANK_ORDER = ["owner", "priviliged"]
 
 # role id -> tier name. Add one line per rank role in your server.
 [vars.RANK_ROLES]
-REPLACE_WITH_VIP_ROLE_ID = "vip"
-REPLACE_WITH_ELITE_ROLE_ID = "elite"
-REPLACE_WITH_OWNER_ROLE_ID = "owner"
+1537108542870257795 = "priviliged"
+1537108896215339058 = "owner"

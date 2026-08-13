@@ -5,6 +5,12 @@
  * hour. Run whenever command shapes change here -- not part of the deployed
  * Worker bundle.
  *
+ * Permission for /whitelistadmin's subcommands is a pure runtime rank-hierarchy
+ * check inside the Worker (invoker must strictly outrank the target) -- not a
+ * static Discord permission bit, so there's no default_member_permissions here.
+ * A Free-rank member can still invoke these and gets a clear rejection instead
+ * of not seeing the command at all.
+ *
  * Set once:
  *   export DISCORD_APPLICATION_ID=xxxxx
  *   export DISCORD_GUILD_ID=xxxxx
@@ -22,11 +28,6 @@ if (!APP_ID || !GUILD_ID || !TOKEN) {
 	process.exit(1);
 }
 
-// default_member_permissions is a string bitfield; "32" = MANAGE_GUILD, used
-// here as the baseline staff gate. worker.js's handlers additionally check
-// DISCORD_STAFF_ROLE_ID membership at runtime (defense in depth).
-const STAFF_PERMISSIONS = "32";
-
 const commands = [
 	{
 		name: "whitelist",
@@ -35,7 +36,7 @@ const commands = [
 			{
 				type: 1, // SUB_COMMAND
 				name: "edit",
-				description: "Link (or re-link) your Roblox account and get your key",
+				description: "Link (or re-link) your Roblox account",
 				options: [
 					{ type: 3, name: "roblox_account", description: "Your Roblox username", required: true },
 				],
@@ -48,29 +49,20 @@ const commands = [
 			{
 				type: 1,
 				name: "remove",
-				description: "Unlink your account and revoke your key",
+				description: "Unlink your account",
 			},
 		],
 	},
 	{
 		name: "whitelistadmin",
-		description: "Staff whitelist management",
-		default_member_permissions: STAFF_PERMISSIONS,
+		description: "Rank-hierarchy whitelist management (usable on strictly lower ranks only)",
 		options: [
 			{
 				type: 1,
 				name: "lookup",
 				description: "Look up a whitelist record",
 				options: [
-					{ type: 3, name: "target", description: "Discord mention, Roblox username, or key", required: true },
-				],
-			},
-			{
-				type: 1,
-				name: "resethwid",
-				description: "Unbind a machine from a key",
-				options: [
-					{ type: 3, name: "target", description: "Discord mention, Roblox username, or key", required: true },
+					{ type: 3, name: "target", description: "Discord mention or Roblox username", required: true },
 				],
 			},
 			{
@@ -87,7 +79,15 @@ const commands = [
 				name: "ban",
 				description: "Ban a whitelist record from ever binding again",
 				options: [
-					{ type: 3, name: "target", description: "Discord mention, Roblox username, or key", required: true },
+					{ type: 3, name: "target", description: "Discord mention or Roblox username", required: true },
+				],
+			},
+			{
+				type: 1,
+				name: "unban",
+				description: "Reverse a ban",
+				options: [
+					{ type: 3, name: "target", description: "Discord mention or Roblox username", required: true },
 				],
 			},
 		],
