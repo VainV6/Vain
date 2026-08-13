@@ -386,7 +386,7 @@ async function cmdWhitelistToken(interaction, env, ctx) {
 		await sendFollowup(
 			env,
 			interaction,
-			"Your in-game token (paste it into Vain -> Utility -> Troll Commands -> Paste Token). " +
+			"Your in-game token (paste it into Vain -> Settings -> General -> Token). " +
 			"Anyone holding it can troll as you, so don't share or stream it -- re-run this command to rotate.\n" +
 			`||\`${token}\`||`
 		);

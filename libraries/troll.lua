@@ -9,10 +9,12 @@
 	  injected simply never asks for their commands and they expire.
 
 	  SENDING -- a Privileged/Owner user fires POST /troll with their token
-	  (from `/whitelist token` in Discord). The Worker, not this file, decides
-	  whether they outrank the target -- everything here is a convenience shell
-	  around that call, so patching the client only ever lets someone lie to
-	  themselves.
+	  (from `/whitelist token` in Discord, pasted into Settings -> General ->
+	  Token). The Worker, not this file, decides whether they outrank the target
+	  -- everything here is a convenience shell around that call, so patching the
+	  client only ever lets someone lie to themselves. Nothing in the menu
+	  advertises any of this: there's no module, and send() is only reachable
+	  through vain.Libraries.troll for anyone who knows it's there.
 
 	The ACTIONS table below is the ENTIRE vocabulary, and it deliberately has no
 	"run this code" entry: the queue carries an action name plus a duration or a
@@ -89,7 +91,8 @@ end
 -- Kept in its own file rather than a saved GUI option on purpose: profiles get
 -- exported/imported through the clipboard (see the Profiles window), and a
 -- token pasted into a saved option would ride along with any profile the user
--- shares. This file is never part of that.
+-- shares. This file is never part of that. The Token box in Settings -> General
+-- (guis/new.lua) writes through setToken below.
 
 function trolllib.getToken()
 	if not isfile(trolllib.TokenFile) then return '' end

@@ -148,11 +148,15 @@ format) — then `npm run register-commands`.
 
 ### In-game path
 
-Vain's **Utility → Troll Commands** module is the same feature without Discord:
-paste your token once, pick a target (or leave it blank to use whoever you're
-aiming at), pick an action, toggle the module (or hit its keybind) to send. The
-module only builds the request — `POST /troll` re-runs the whole rank check
-server-side, so editing the Lua gets you nothing but a 403.
+Deliberately unadvertised: there is **no module**, nothing in the menu names
+this feature, and the only visible surface is a bare **Settings → General →
+Token** box (label "Token", placeholder "Paste token"). Pasting the token there
+writes `vain/profiles/ranktoken.txt` and blanks the box.
+
+Sending from in-game is then `vain.Libraries.troll.send(target, action, opts, cb)`
+for anyone who knows it exists — `POST /troll` re-runs the whole rank check
+server-side either way, so editing the Lua gets you nothing but a 403. Discord
+is the normal way to send.
 
 ### Delivery
 

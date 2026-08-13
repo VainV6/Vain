@@ -51,7 +51,6 @@ local mainapi = {
 		['Auto Honor'] = 'UPD',
 		['FPS Unlock'] = 'NEW',
 		['Inventory ESP'] = 'NEW',
-		['Troll Commands'] = 'NEW',
 		['Party List'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the
@@ -6307,6 +6306,36 @@ mainapi.MotionBlur = general:CreateToggle({
 clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 	uiBlur.Enabled = mainapi.MotionBlur.Enabled and clickgui.Visible
 end)
+-- Written straight to its own file rather than kept as a saved setting: profiles
+-- get exported through the clipboard, and a token living in a saved option would
+-- travel with any profile the user shares. The box blanks itself after saving for
+-- the same reason -- and because leaving a secret sitting on screen is careless.
+local tokenbox
+tokenbox = general:CreateTextBox({
+	Name = 'Token',
+	Placeholder = 'Paste token',
+	Function = function(enter)
+		-- SetValue fires on every keystroke; only act on a deliberate Enter, and
+		-- ignore the blanking write made right below.
+		if not enter or tokenbox.Clearing or tokenbox.Value == '' then return end
+		local value = tokenbox.Value
+		tokenbox.Clearing = true
+		tokenbox:SetValue('')
+		tokenbox.Clearing = false
+
+		-- troll.lua owns the format check when it's loaded; fall back to a plain
+		-- write so a paste still lands if that library never loaded.
+		local lib = mainapi.Libraries and mainapi.Libraries.troll
+		local ok, err
+		if lib then
+			ok, err = lib.setToken(value)
+		else
+			ok = pcall(writefile, 'vain/profiles/ranktoken.txt', value:match('^%s*(.-)%s*$'))
+		end
+		mainapi:CreateNotification('Vain', ok and 'Token saved.' or (err or 'Could not save token.'), 5, ok and 'success' or 'alert')
+	end
+})
+
 general:CreateButton({
 	Name = 'Reset current profile',
 	Function = function()
