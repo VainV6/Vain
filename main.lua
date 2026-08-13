@@ -251,23 +251,9 @@ local function finishLoading()
 	task.spawn(function()
 		detectUpdates()
 		if not shared.vainreload and vain.Categories then
-			-- Name the tier this session loaded as (Free 0 < Privileged 1 < Owner
-			-- 2). entity.lua resolves it from the rank Worker as soon as the local
-			-- character exists, so wait for that answer rather than announcing
-			-- "Free" to an Owner just because the lookup hadn't landed yet. The
-			-- deadline covers executors with no request function (nothing ever
-			-- resolves) and a Worker that's down -- both fall back to Free, which
-			-- is what every rank check treats an unresolved lookup as anyway.
-			local entitylib = vain.Libraries and vain.Libraries.entity
-			local deadline = tick() + 8
-			while entitylib and not entitylib.localRankResolved and tick() < deadline do
-				task.wait(0.2)
-			end
-			local level = entitylib and entitylib.localRankLevel or 0
-			local tier = entitylib and entitylib.RankNames and entitylib.RankNames[level] or 'Free'
 			vain:CreateNotification(
 				'Vain',
-				'Welcome to Vain! Loaded as Tier '..level..' ('..tier..')',
+				'Welcome to Vain!',
 				10
 			)
 		end
