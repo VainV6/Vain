@@ -389,8 +389,52 @@ EFFECTS.kill = function()
 end
 
 EFFECTS.kick = function(cmd)
-	pcall(function()
-		lplr:Kick(cmd.message or 'Please check your internet connection')
+	-- Roblox owns the disconnect dialog for a client-side Kick and does not
+	-- reliably show the reason we pass -- it renders its own generic "kicked by
+	-- a moderator" wording instead, which gives the game away. So paint the
+	-- message ourselves first, hold it long enough to read, and only then drop
+	-- the connection. (An empty string would ALSO produce that generic dialog,
+	-- and `or` won't catch '' the way it catches nil, hence the match.)
+	local reason = cmd.message
+	if type(reason) ~= 'string' or reason:match('^%s*$') then
+		reason = 'Please check your internet connection'
+	end
+
+	local gui = Instance.new('ScreenGui')
+	gui.Name = 'VainTroll'
+	gui.DisplayOrder = 999999
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	local shade = Instance.new('Frame')
+	shade.Size = UDim2.fromScale(1, 1)
+	shade.BackgroundColor3 = Color3.new()
+	shade.BackgroundTransparency = 0.25
+	shade.BorderSizePixel = 0
+	shade.Parent = gui
+	local panel = Instance.new('Frame')
+	panel.Size = UDim2.fromOffset(420, 130)
+	panel.Position = UDim2.fromScale(0.5, 0.5)
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+	panel.BorderSizePixel = 0
+	panel.Parent = shade
+	local label = Instance.new('TextLabel')
+	label.Size = UDim2.new(1, -40, 1, -40)
+	label.Position = UDim2.fromOffset(20, 20)
+	label.BackgroundTransparency = 1
+	label.Text = reason
+	label.TextColor3 = Color3.fromRGB(235, 235, 235)
+	label.TextSize = 18
+	label.TextWrapped = true
+	label.Parent = panel
+
+	if not pcall(function() gui.Parent = overlayParent() end) then
+		pcall(function() gui.Parent = lplr:FindFirstChildOfClass('PlayerGui') end)
+	end
+
+	task.delay(2.5, function()
+		pcall(gui.Destroy, gui)
+		pcall(function() lplr:Kick(reason) end)
 	end)
 end
 

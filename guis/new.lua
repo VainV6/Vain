@@ -6235,19 +6235,16 @@ do
 		local importStroke = Instance.new('UIStroke')
 		importStroke.Color = color.Light(uipallet.Main, 0.14)
 		importStroke.Parent = importBtn
-		importBtn.MouseButton1Click:Connect(function()
-			-- Say WHICH of the four ways this failed. They need completely
-			-- different fixes (missing executor function, empty clipboard, wrong
-			-- text copied, unwritable file) and one generic "could not import"
-			-- left you guessing at all of them.
+		-- Shared by the clipboard button and the paste box below it. Reports WHICH
+		-- of the ways it failed: they need completely different fixes (missing
+		-- executor function, nothing copied, wrong text, unwritable file) and one
+		-- generic "could not import" left you guessing at all of them.
+		local function importProfileString(raw)
 			local ok, err = pcall(function()
-				local read = getclipboard or getclipboardtext or (Clipboard and Clipboard.get)
-				if not read then error('your executor has no getclipboard, so Vain cannot read your clipboard') end
-				local raw = read()
-				if type(raw) ~= 'string' or raw == '' then error('your clipboard is empty') end
+				if type(raw) ~= 'string' or raw:match('^%s*$') then error('nothing to import') end
 				local decodeOk, decoded = pcall(function() return httpService:JSONDecode(raw) end)
 				if not decodeOk or type(decoded) ~= 'table' or not decoded.Name or not decoded.Data then
-					error('that is not a profile string -- copy one with Export first')
+					error('that is not a profile string -- use Export to make one')
 				end
 				if not mainapi:ApplyPreset(decoded) then
 					error('could not write the profile file')
@@ -6258,9 +6255,52 @@ do
 				err = tostring(err):match('[^:]+$') or tostring(err)
 				mainapi:CreateNotification('Profiles', 'Import failed:'..err, 7, 'alert')
 			end
+			return ok
+		end
+
+		importBtn.MouseButton1Click:Connect(function()
+			-- getclipboard is far less widely implemented than setclipboard, so
+			-- Export can work on an executor where this button never can. That's
+			-- what the paste box underneath is for.
+			local read = getclipboard or getclipboardtext or (Clipboard and Clipboard.get)
+			if not read then
+				if mainapi.CreateNotification then
+					mainapi:CreateNotification('Profiles', 'Your executor cannot read the clipboard -- paste the profile into the box below instead.', 8, 'warning')
+				end
+				return
+			end
+			local gotOk, raw = pcall(read)
+			importProfileString(gotOk and raw or nil)
 		end)
 		importBtn.MouseEnter:Connect(function() tween:Tween(importBtn, uipallet.Tween, { TextColor3 = uipallet.Text }) end)
 		importBtn.MouseLeave:Connect(function() tween:Tween(importBtn, uipallet.Tween, { TextColor3 = color.Dark(uipallet.Text, 0.08) }) end)
+
+		local pasteBox = Instance.new('TextBox')
+		pasteBox.Size = UDim2.fromOffset(200, 28)
+		pasteBox.LayoutOrder = order
+		order = order + 1
+		pasteBox.BackgroundColor3 = color.Light(uipallet.Main, 0.07)
+		pasteBox.BorderSizePixel = 0
+		pasteBox.PlaceholderText = '  ...or paste a profile + Enter'
+		pasteBox.Text = ''
+		pasteBox.ClearTextOnFocus = false
+		pasteBox.TextColor3 = color.Dark(uipallet.Text, 0.08)
+		pasteBox.PlaceholderColor3 = color.Dark(uipallet.Text, 0.31)
+		pasteBox.TextSize = 11
+		pasteBox.TextTruncate = Enum.TextTruncate.AtEnd
+		pasteBox.FontFace = uipallet.Font
+		pasteBox.Parent = parent
+		addCorner(pasteBox)
+		if addTooltip then addTooltip(pasteBox, 'Paste a profile string here and press Enter. Works on executors that cannot read the clipboard.') end
+		local pasteStroke = Instance.new('UIStroke')
+		pasteStroke.Color = color.Light(uipallet.Main, 0.14)
+		pasteStroke.Parent = pasteBox
+		pasteBox.FocusLost:Connect(function(enter)
+			if not enter then return end
+			local raw = pasteBox.Text
+			pasteBox.Text = ''
+			importProfileString(raw)
+		end)
 	end
 end
 
