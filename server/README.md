@@ -133,8 +133,9 @@ ever touched Discord — unbound is just Free):
   nothing further reaches them until they inject again.
 
 And one that isn't an effect:
-- `/list` — everyone currently injected, newest heartbeat first. Privileged and
-  above.
+- `/list` — everyone injected within the last `PRESENCE_TTL` (3 min).
+  Privileged and above. It deliberately shows no per-player "last seen" age:
+  see Delivery below for why that number would be fiction.
 
 Plus the token that authenticates the in-game path:
 - `/whitelist token` — self-service, Privileged and above: issues the secret
@@ -183,10 +184,14 @@ That same poll carries `?name=&place=` and doubles as the presence heartbeat
 behind `/list` (`online:<robloxUserId>`, in KV metadata so `/list` is one
 `list()` call). A poll only *writes* when the existing key is older than
 `PRESENCE_REFRESH`, because KV's free tier allows ~1k writes/day and writing
-every 5s would exhaust that in under two user-hours — the cost is that "seen
-Xs ago" has up to `PRESENCE_TTL` (3 min) of slack. Both constants are at the
-top of [`src/troll.js`](src/troll.js) if you have the write budget for finer
-resolution.
+every 5s would exhaust that in under two user-hours.
+
+The consequence is that the stored timestamp is the age of the last *write*,
+not of the last poll — a player polling this very second can be carrying a
+two-minute-old one. That's why `/list` prints no age: the only thing the data
+honestly supports is "checked in within `PRESENCE_TTL`". If you want finer
+resolution, lower both constants at the top of [`src/troll.js`](src/troll.js)
+and pay for it in writes (one user costs `3600/PRESENCE_REFRESH` writes/hour).
 
 ## Honest limits
 

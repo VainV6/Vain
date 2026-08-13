@@ -154,7 +154,12 @@ export async function enqueueCommand(env, robloxUserId, cmd) {
 // when the existing key is older than PRESENCE_REFRESH -- reads are 100x more
 // generous than writes, so checking first is nearly free. Raise both if you want
 // tighter "currently injected" resolution and have the write budget for it.
-const PRESENCE_TTL = 180;
+// Rough cost of a change here: one injected user burns 3600/PRESENCE_REFRESH
+// writes an hour (24/h at 150s). The free plan's ~1k/day therefore covers about
+// 40 user-hours a day; halving PRESENCE_REFRESH halves that. Whatever you pick,
+// PRESENCE_TTL is the real resolution of /list -- an entry means "checked in
+// within TTL", nothing finer, which is why /list doesn't print an age.
+export const PRESENCE_TTL = 180;
 const PRESENCE_REFRESH = 150;
 const presenceKey = (robloxUserId) => `online:${robloxUserId}`;
 

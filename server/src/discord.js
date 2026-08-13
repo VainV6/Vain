@@ -28,7 +28,7 @@
  */
 
 import { verifyKey } from "discord-interactions";
-import { ACTION_NAMES, enqueueCommand, listPresence, normalizeCommand } from "./troll.js";
+import { ACTION_NAMES, PRESENCE_TTL, enqueueCommand, listPresence, normalizeCommand } from "./troll.js";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -452,19 +452,22 @@ async function cmdList(interaction, env, ctx) {
 			return sendFollowup(env, interaction, "Nobody is injected right now.");
 		}
 
-		const now = Date.now();
-		const lines = online.slice(0, LIST_LIMIT).map((p) => {
-			const ago = Math.round((now - p.at) / 1000);
-			return `• **${p.name || p.robloxUserId}** (${p.robloxUserId})` +
-				(p.place ? ` — place ${p.place}` : "") +
-				` — seen ${ago}s ago`;
-		});
+		// No per-entry "seen Xs ago": the timestamp we hold is when the heartbeat
+		// key was last WRITTEN, and writes are throttled to once per
+		// PRESENCE_REFRESH to stay inside KV's write budget -- so someone polling
+		// this very second can carry a two-minute-old timestamp. Printing it reads
+		// as "they're idle" when it only ever meant "we last wrote it then". What
+		// the key's existence genuinely tells us is the window in the header.
+		const lines = online.slice(0, LIST_LIMIT).map((p) =>
+			`• **${p.name || p.robloxUserId}** (${p.robloxUserId})` + (p.place ? ` — place ${p.place}` : "")
+		);
 		if (online.length > LIST_LIMIT) lines.push(`…and ${online.length - LIST_LIMIT} more`);
 
 		await sendFollowup(
 			env,
 			interaction,
-			`**${online.length} injected**\n${lines.join("\n")}`
+			`**${online.length} injected** _(anyone who checked in within the last ${Math.round(PRESENCE_TTL / 60)} min)_\n` +
+			lines.join("\n")
 		);
 	})());
 
