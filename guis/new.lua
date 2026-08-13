@@ -5628,6 +5628,21 @@ function mainapi:Load(skipgui, profile)
 				object:SetFavourite(v.Favourite, true)
 			end
 		end
+
+		-- Anything the incoming profile DOESN'T mention has to be reset, not left
+		-- alone. This loop only ever visited modules listed in the file, so a
+		-- module missing from it -- because the profile was saved before that
+		-- module existed, or by an older build -- silently inherited whatever the
+		-- profile you just left had it set to. That is why switching profiles
+		-- "kept the settings", and why modules looked like they were toggling on
+		-- their own: the ones in the file switched, the ones missing didn't.
+		-- Absent means default, and a module's default is off.
+		local listed = savedata.Modules or {}
+		for i, object in self.Modules do
+			if listed[i] == nil and object.Enabled then
+				object:Toggle(true)
+			end
+		end
 		self:SortModules()
 
 		for i, v in savedata.Legit do
@@ -5641,6 +5656,14 @@ function mainapi:Load(skipgui, profile)
 			end
 			if v.Position and object.Children then
 				object.Children.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
+			end
+		end
+
+		-- Same reset for the Legit modules, same reason.
+		local listedLegit = savedata.Legit or {}
+		for i, object in self.Legit.Modules do
+			if listedLegit[i] == nil and object.Enabled then
+				object:Toggle()
 			end
 		end
 
