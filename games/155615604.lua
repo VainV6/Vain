@@ -1424,9 +1424,24 @@ run(function()
     local DistanceCheck
     local DistanceLimit
     local Strings, Sizes, Reference = {}, {}, {}
+    -- Every Drawing nametag ever created, so teardown can reach the ones that
+    -- fell out of Reference (Drawing objects aren't parented to anything, so
+    -- unlike the Normal labels there's no Folder to sweep).
+    local DrawingObjects = {}
     local Folder = Instance.new('Folder')
     Folder.Parent = vain.gui
     local methodused
+
+    -- entitylib drops an entity on CharacterRemoving, not on death -- so for the
+    -- seconds between dying and the corpse being cleaned up, the entity is still
+    -- listed with a RootPart that has stopped moving. Rendering a tag for it is
+    -- what leaves one hanging in the air at the spot somebody died.
+    local function unrenderable(ent)
+        local root = ent.RootPart
+        if not root or not root.Parent then return true end
+        if ent.Humanoid and ent.Humanoid.Parent then return ent.Humanoid.Health <= 0 end
+        return (ent.Health or 1) <= 0
+    end
     
     local Added = {
         Normal = function(ent)
@@ -1510,8 +1525,19 @@ run(function()
             nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
             nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
             Reference[ent] = nametag
+            DrawingObjects[nametag] = true
         end
     }
+
+    local function destroyDrawing(nametag)
+        DrawingObjects[nametag] = nil
+        for _, obj in nametag do
+            pcall(function()
+                obj.Visible = false
+                obj:Remove()
+            end)
+        end
+    end
     
     local Removed = {
         Normal = function(ent)
@@ -1535,12 +1561,7 @@ run(function()
                 Reference[ent] = nil
                 Strings[ent] = nil
                 Sizes[ent] = nil
-                for _, obj in v do
-                    pcall(function()
-                        obj.Visible = false
-                        obj:Remove()
-                    end)
-                end
+                destroyDrawing(v)
             end
         end
     }
@@ -1629,6 +1650,10 @@ run(function()
     local Loop = {
         Normal = function()
             for ent, nametag in Reference do
+                if unrenderable(ent) then
+                    nametag.Visible = false
+                    continue
+                end
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
@@ -1657,6 +1682,11 @@ run(function()
         end,
         Drawing = function()
             for ent, nametag in Reference do
+                if unrenderable(ent) then
+                    nametag.Text.Visible = false
+                    nametag.BG.Visible = false
+                    continue
+                end
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
@@ -1729,6 +1759,20 @@ run(function()
                         Removed[methodused](i)
                     end
                 end
+                -- Then sweep, rather than trusting that sweep to have been
+                -- complete. Anything that ever escaped Reference -- an entity
+                -- replaced without an EntityRemoved, a tag created under the
+                -- other method -- has nothing left pointing at it, so turning
+                -- the module off could never remove it and it stayed on screen
+                -- for the rest of the session.
+                table.clear(Reference)
+                table.clear(Strings)
+                table.clear(Sizes)
+                Folder:ClearAllChildren()
+                for nametag in DrawingObjects do
+                    destroyDrawing(nametag)
+                end
+                table.clear(DrawingObjects)
             end
         end,
         Tooltip = 'Renders nametags on entities through walls.'
