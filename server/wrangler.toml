@@ -13,6 +13,20 @@ compatibility_date = "2024-11-01"
 binding = "KEYS"
 id = "2a990242fbdf4b4aac895337ea05cb10"
 
+# One Durable Object per Roblox user id: that player's command inbox (src/inbox.js).
+# This is what makes delivery instant -- KV could only ever be polled, and its
+# edge read cache has a 60s floor, so a command could sit invisible for a minute.
+# A DO is a single addressable point, so the sender hands the command straight to
+# the socket that is waiting for it.
+[[durable_objects.bindings]]
+name = "INBOX"
+class_name = "Inbox"
+
+# SQLite-backed, which is the storage backend available on the Workers free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Inbox"]
+
 # Secrets (DO NOT put these here -- set them with `wrangler secret put`):
 #   DISCORD_BOT_TOKEN: from the Discord Developer Portal's Bot tab -- required,
 #                       used for every guild-member/rank REST call.

@@ -70,6 +70,11 @@ local delfile = delfile or function(file) writefile(file, '') end
 local HOLD_SECONDS = 20
 local IDLE_INTERVAL = 1
 local FALLBACK_INTERVAL = 5
+-- Socket heartbeat. Not a poll: it carries no request and gets no answer beyond
+-- an empty ack. It exists to keep idle intermediaries from closing the
+-- connection, and to refresh the presence key /list reads.
+local SOCKET_HEARTBEAT = 45
+local SOCKET_RETRY = 5
 -- While in fallback, retry a hold this often, so a Worker that starts honouring
 -- ?wait= later (a deploy, an outage ending) is picked up without a reinject.
 local PROBE_INTERVAL = 300
@@ -498,12 +503,99 @@ function trolllib.poll(hold)
 	return true, #decoded.commands
 end
 
+-- ── websocket listening ──────────────────────────────────────────────────────
+-- The preferred path by a mile: one connection, held open, carrying nothing but
+-- a heartbeat. No repeated HTTP requests at all, and a command pushed by the
+-- Worker's Durable Object arrives in milliseconds instead of waiting for anyone
+-- to look. Executors without WebSocket support fall through to the long poll
+-- below, which is slower to set up but no slower to deliver.
+local socketConnect = (WebSocket and WebSocket.connect)
+	or (syn and syn.websocket and syn.websocket.connect)
+	or (websocket and websocket.connect)
+
+local function socketUrl()
+	return (trolllib.API:gsub('^http', 'ws'))
+		..'/ws/'..tostring(lplr.UserId)
+		..'?name='..httpService:UrlEncode(lplr.Name)
+		..'&place='..tostring(game.PlaceId)
+end
+
+local function handlePayload(body)
+	local decOk, decoded = pcall(httpService.JSONDecode, httpService, body)
+	if not decOk or type(decoded) ~= 'table' or type(decoded.commands) ~= 'table' then return end
+	for i, cmd in decoded.commands do
+		if i > MAX_PER_POLL then break end
+		trolllib.execute(cmd)
+	end
+end
+
+-- Returns the socket, or nil if this executor/network can't hold one.
+function trolllib.openSocket()
+	if not socketConnect then return nil end
+
+	local ok, sock = pcall(socketConnect, socketUrl())
+	if not ok or not sock then return nil end
+
+	pcall(function()
+		sock.OnMessage:Connect(function(body)
+			handlePayload(body)
+		end)
+		sock.OnClose:Connect(function()
+			trolllib.Socket = nil
+		end)
+	end)
+	trolllib.Socket = sock
+	return sock
+end
+
 function trolllib.start()
-	if trolllib.Running or not req then return end
+	if trolllib.Running then return end
 	trolllib.Running = true
+
+	if socketConnect then
+		task.spawn(function()
+			local backoff = SOCKET_RETRY
+			while trolllib.Running do
+				if not trolllib.Socket then
+					if trolllib.openSocket() then
+						backoff = SOCKET_RETRY
+					else
+						-- Give up on sockets entirely rather than reconnecting
+						-- forever; the long poll below is a working fallback.
+						backoff = math.min(backoff * 2, 120)
+						if backoff >= 120 then
+							trolllib.SocketFailed = true
+							return
+						end
+					end
+				elseif trolllib.Socket then
+					-- Heartbeat: proves we're still here (this is what keeps /list
+					-- accurate) and keeps idle intermediaries from closing us.
+					if not pcall(function() trolllib.Socket:Send('ping') end) then
+						trolllib.Socket = nil
+					end
+				end
+				task.wait(trolllib.Socket and SOCKET_HEARTBEAT or backoff)
+			end
+			if trolllib.Socket then
+				pcall(function() trolllib.Socket:Close() end)
+				trolllib.Socket = nil
+			end
+		end)
+	end
+
+	if not req then return end
 	task.spawn(function()
 		local holding, failures, lastProbe = true, 0, 0
 		while trolllib.Running do
+			-- A live socket is already listening; polling alongside it would just
+			-- spend requests to be told the same thing. Wait for it to drop (or to
+			-- be given up on) before taking over.
+			if trolllib.Socket or (socketConnect and not trolllib.SocketFailed) then
+				task.wait(SOCKET_HEARTBEAT)
+				continue
+			end
+
 			local hold = holding and HOLD_SECONDS or 0
 			if not holding and tick() - lastProbe > PROBE_INTERVAL then
 				hold, lastProbe = HOLD_SECONDS, tick()
@@ -538,6 +630,10 @@ end
 
 function trolllib.stop()
 	trolllib.Running = false
+	if trolllib.Socket then
+		pcall(function() trolllib.Socket:Close() end)
+		trolllib.Socket = nil
+	end
 	table.clear(activeEffects)
 	table.clear(seen)
 end

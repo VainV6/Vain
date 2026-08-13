@@ -23,15 +23,14 @@
  * player doesn't ambush them an hour later.
  */
 
-// Cloudflare KV's expirationTtl floor is 60s; 120 gives a client that's
-// mid-teleport (poll loop restarted) a chance to still pick a command up.
-export const QUEUE_TTL = 120;
-
-// Per-target queue cap -- stops one person from stacking 50 effects on someone.
+// Per-target cap on commands waiting for someone who isn't listening -- stops
+// one person stacking 50 effects on a player who is offline.
 export const MAX_QUEUED = 5;
 
-// A command older than this is dropped by the client instead of run (belt and
-// braces alongside QUEUE_TTL, which the KV side already enforces).
+// How long a command held for an absent player stays worth delivering. Nothing
+// expires it in storage; the inbox drops anything older than this when it
+// flushes, which is simpler and means a stale command can never ambush someone
+// an hour later.
 export const MAX_AGE_MS = 90 * 1000;
 
 export const MIN_SECONDS = 1;
@@ -119,35 +118,26 @@ export function normalizeCommand({ action, seconds, message, from }) {
 	return { cmd };
 }
 
-const queueKey = (robloxUserId) => `cmdq:${robloxUserId}`;
-
-async function readQueue(env, robloxUserId) {
-	const raw = await env.KEYS.get(queueKey(robloxUserId));
-	if (!raw) return [];
-	try {
-		const parsed = JSON.parse(raw);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch {
-		return [];
-	}
+/** The Durable Object that is this player's inbox (see ./inbox.js). */
+export function inboxFor(env, robloxUserId) {
+	return env.INBOX.get(env.INBOX.idFromName(String(robloxUserId)));
 }
 
 /**
- * Append a command to the target's pending queue.
- *
- * KV has no compare-and-swap, so two commands enqueued for the same target in
- * the same instant can clobber each other -- acceptable here (worst case one
- * joke effect doesn't fire), and the alternative (a Durable Object per player)
- * is a lot of machinery for a troll queue.
+ * Hand a command to the target's inbox. The object delivers it straight to a
+ * live WebSocket or a parked long poll -- nothing polls, and nothing waits for
+ * a cache to expire. It only lands in storage if the player isn't listening at
+ * all, which is also the only case where QUEUE_TTL/MAX_QUEUED matter.
  */
 export async function enqueueCommand(env, robloxUserId, cmd) {
-	const queue = await readQueue(env, robloxUserId);
-	if (queue.length >= MAX_QUEUED) {
-		return { error: "That player already has the maximum number of pending commands -- let them land first." };
-	}
-	queue.push(cmd);
-	await env.KEYS.put(queueKey(robloxUserId), JSON.stringify(queue), { expirationTtl: QUEUE_TTL });
-	return { queued: queue.length };
+	const res = await inboxFor(env, robloxUserId).fetch("https://inbox/push", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(cmd),
+	});
+	const body = await res.json();
+	if (body.error) return { error: body.error };
+	return { delivered: body.delivered };
 }
 
 // ---- presence ---------------------------------------------------------------
@@ -210,40 +200,4 @@ export async function listPresence(env) {
 		.sort((a, b) => b.at - a.at);
 }
 
-// ---- long poll --------------------------------------------------------------
-// A client asks the Worker to HOLD its request open instead of hanging up and
-// asking again in five seconds. One held request covers HOLD_MAX seconds of
-// listening, so Worker invocations drop by roughly the hold length: at 20s
-// that's ~4.1k requests/day per injected client instead of ~17.3k.
-//
-// It does NOT reduce KV reads -- the hold still checks the queue every
-// CHECK_INTERVAL, and reads have their own daily cap -- so raising
-// CHECK_INTERVAL is the knob that trades delivery latency for KV budget. Real
-// push (no polling at all, either side) needs cross-request signalling, which
-// on Cloudflare means Durable Objects.
-
 export const HOLD_MAX = 20;
-const CHECK_INTERVAL = 5;
-
-export async function waitForCommands(env, robloxUserId, holdSeconds) {
-	const deadline = Date.now() + Math.max(0, holdSeconds) * 1000;
-	for (;;) {
-		const commands = await takeCommands(env, robloxUserId);
-		if (commands.length > 0) return commands;
-
-		const remaining = deadline - Date.now();
-		if (remaining <= 0) return [];
-		// Sleeping costs wall time, not CPU time, and Workers bill CPU.
-		await new Promise((resolve) => setTimeout(resolve, Math.min(CHECK_INTERVAL * 1000, remaining)));
-	}
-}
-
-/**
- * Hand a client its pending commands and clear them (each command runs once).
- */
-export async function takeCommands(env, robloxUserId) {
-	const queue = await readQueue(env, robloxUserId);
-	if (queue.length > 0) await env.KEYS.delete(queueKey(robloxUserId));
-	const cutoff = Date.now() - MAX_AGE_MS;
-	return queue.filter((c) => c && typeof c.action === "string" && (c.at || 0) >= cutoff);
-}

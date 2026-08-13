@@ -187,23 +187,37 @@ entry point is `vain.Libraries.troll.send(target, action, opts, cb)`.
 
 ### Delivery
 
-Commands are **pulled, not pushed**: they sit in `cmdq:<robloxUserId>` until
-that player's own client asks for them (`GET /commands/<id>`, every 5s), and
-expire after 120s. So a command only ever lands on someone *running Vain* —
-send one to a player who isn't injected and it simply evaporates.
+Commands are **pushed**, through one Durable Object per Roblox user id — that
+player's inbox ([`src/inbox.js`](src/inbox.js)). A DO is a single addressable
+point for one player, so the sender's request hands the command straight to
+whatever is waiting for it:
 
-That same poll carries `?name=&place=` and doubles as the presence heartbeat
-behind `/list` (`online:<robloxUserId>`, in KV metadata so `/list` is one
-`list()` call). A poll only *writes* when the existing key is older than
-`PRESENCE_REFRESH`, because KV's free tier allows ~1k writes/day and writing
-every 5s would exhaust that in under two user-hours.
+| Path | How the client listens | Delivery |
+|---|---|---|
+| `/ws/<id>` | one hibernatable WebSocket, held open | ~20ms |
+| `/commands/<id>?wait=N` | long poll (executors with no WebSocket) | instant on push |
+| storage | nobody listening | on their next connect |
 
-The consequence is that the stored timestamp is the age of the last *write*,
-not of the last poll — a player polling this very second can be carrying a
-two-minute-old one. That's why `/list` prints no age: the only thing the data
-honestly supports is "checked in within `PRESENCE_TTL`". If you want finer
-resolution, lower both constants at the top of [`src/troll.js`](src/troll.js)
-and pay for it in writes (one user costs `3600/PRESENCE_REFRESH` writes/hour).
+A command still only ever lands on someone *running Vain*: nothing is sent to a
+player with no connection and no poll, and anything held for an absent player
+is dropped once it's older than `MAX_AGE_MS`.
+
+**This replaced a KV queue, and the reason matters.** KV can only be polled, and
+it caches reads at the edge — *including misses* — with a **60 second floor**.
+A client polling its own queue key kept a warm negative cache in its colo, so a
+freshly written command could stay invisible there for up to a minute; observed
+delays were 10–15s. No amount of polling tuning fixes that, because the cache
+is the problem. It also means the client no longer sends anything on a timer:
+the WebSocket carries one heartbeat every 45s, which is what keeps the presence
+key alive rather than a request for work.
+
+Presence itself is still KV (`online:<robloxUserId>`, in metadata so `/list` is
+one `list()` call), refreshed from the socket heartbeat and throttled to one
+write per `PRESENCE_REFRESH` — KV's free tier allows ~1k writes/day and writing
+on every heartbeat would exhaust it. The stored timestamp is therefore the age
+of the last *write*, not of the last heartbeat, which is why `/list` prints no
+age: the only thing the data honestly supports is "checked in within
+`PRESENCE_TTL`".
 
 ## Honest limits
 

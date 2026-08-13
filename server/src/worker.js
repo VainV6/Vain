@@ -31,7 +31,9 @@
  */
 
 import { handleDiscordInteraction, resolveRank, authorizeTroll, detectInjected, discordUserIdFromToken } from "./discord.js";
-import { HOLD_MAX, touchPresence, waitForCommands } from "./troll.js";
+import { HOLD_MAX, inboxFor, touchPresence } from "./troll.js";
+
+export { Inbox } from "./inbox.js";
 
 function json(obj, status = 200) {
 	return new Response(JSON.stringify(obj), {
@@ -112,20 +114,32 @@ export default {
 			return handleRankLookup(env, rankMatch[1], ctx);
 		}
 
+		// The good path: one WebSocket, held open, nothing sent on it but the
+		// occasional heartbeat. Commands arrive the instant they're sent.
+		const wsMatch = url.pathname.match(/^\/ws\/(\d+)$/);
+		if (wsMatch) {
+			const target = new URL("https://inbox/ws");
+			target.searchParams.set("id", wsMatch[1]);
+			target.searchParams.set("name", url.searchParams.get("name") || "");
+			target.searchParams.set("place", url.searchParams.get("place") || "");
+			ctx.waitUntil(touchPresence(env, wsMatch[1], {
+				name: url.searchParams.get("name"),
+				place: url.searchParams.get("place"),
+			}));
+			return inboxFor(env, wsMatch[1]).fetch(new Request(target, req));
+		}
+
 		const cmdMatch = url.pathname.match(/^\/commands\/(\d+)$/);
 		if (cmdMatch && req.method === "GET") {
-			// This poll is also the presence heartbeat /list reads -- deferred so a
-			// KV hiccup on the bookkeeping can never cost the client its commands.
+			// Long-poll fallback for executors with no WebSocket. Still routed
+			// through the Durable Object, so a push resolves this request straight
+			// away rather than a timer noticing on its next sweep.
 			ctx.waitUntil(touchPresence(env, cmdMatch[1], {
 				name: url.searchParams.get("name"),
 				place: url.searchParams.get("place"),
 			}));
-			// ?wait=N holds the request open for up to N seconds, answering the
-			// moment a command shows up. Absent (or 0) keeps the old behaviour of
-			// answering immediately, which is what a client falls back to when its
-			// executor can't keep an HTTP request open that long.
 			const wait = Math.min(HOLD_MAX, Math.max(0, Number(url.searchParams.get("wait")) || 0));
-			return json({ commands: await waitForCommands(env, cmdMatch[1], wait) });
+			return inboxFor(env, cmdMatch[1]).fetch(`https://inbox/wait?wait=${wait}`);
 		}
 
 		return json({ error: "not found" }, 404);
