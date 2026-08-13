@@ -42,6 +42,11 @@ local playersService = cloneref(game:GetService('Players'))
 local runService = cloneref(game:GetService('RunService'))
 local httpService = cloneref(game:GetService('HttpService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
+local lightingService = cloneref(game:GetService('Lighting'))
+local soundService = cloneref(game:GetService('SoundService'))
+local textChatService = cloneref(game:GetService('TextChatService'))
+local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
+local debrisService = cloneref(game:GetService('Debris'))
 local lplr = playersService.LocalPlayer
 
 local req = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request)
@@ -76,6 +81,18 @@ trolllib.Actions = {
 	{Name = 'Shake', Action = 'shake', Timed = true, Tooltip = 'Shakes their camera around.'},
 	{Name = 'Invert', Action = 'invert', Timed = true, Tooltip = 'Inverts their movement controls.'},
 	{Name = 'Blind', Action = 'blind', Timed = true, Tooltip = 'Blacks out their screen.'},
+	{Name = 'Tiny', Action = 'tiny', Timed = true, Tooltip = 'Shrinks them (R15 only).'},
+	{Name = 'Giant', Action = 'giant', Timed = true, Tooltip = 'Blows them up to giant size (R15 only).'},
+	{Name = 'Moon', Action = 'moon', Timed = true, Tooltip = 'Puts them in moon gravity.'},
+	{Name = 'Speed', Action = 'speed', Timed = true, Tooltip = 'Makes them uncontrollably fast.'},
+	{Name = 'Drunk', Action = 'drunk', Timed = true, Tooltip = 'Rolls their camera around drunkenly.'},
+	{Name = 'Flip', Action = 'flip', Timed = true, Tooltip = 'Turns their camera upside down.'},
+	{Name = 'Zoom', Action = 'zoom', Timed = true, Tooltip = 'Yanks their field of view to a fisheye.'},
+	{Name = 'Dance', Action = 'dance', Timed = true, Tooltip = 'Makes them dance.'},
+	{Name = 'Oof', Action = 'oof', Timed = true, Tooltip = 'Spams the classic death sound at them.'},
+	{Name = 'Disco', Action = 'disco', Timed = true, Tooltip = 'Strobes their screen through every colour.'},
+	{Name = 'Void', Action = 'void', Tooltip = 'Drops them through the map.'},
+	{Name = 'Say', Action = 'say', Message = true, Silent = true, Tooltip = 'Makes them say something in chat.'},
 	{Name = 'Notify', Action = 'notify', Message = true, Silent = true, Tooltip = 'Pops a Vain notification on their screen.'},
 	{Name = 'Kill', Action = 'kill', Silent = true, Tooltip = 'Kills their character.'},
 	{Name = 'Kick', Action = 'kick', Silent = true, Tooltip = 'Disconnects them from the game.'},
@@ -91,8 +108,11 @@ for _, v in trolllib.Actions do
 	actionByWire[v.Action] = v
 end
 
+-- Accepts either the display name ('Kick') or the wire/command word ('kick'),
+-- so the in-game command bar can pass exactly what the user typed.
 function trolllib.getAction(name)
-	return actionByName[name]
+	if not name then return nil end
+	return actionByName[name] or actionByWire[tostring(name):lower()]
 end
 
 -- ── token storage ────────────────────────────────────────────────────────────
@@ -149,6 +169,23 @@ local function runFor(action, seconds, func, finish)
 			runService.Heartbeat:Wait()
 		end
 		if finish then pcall(finish, getCharacter()) end
+		activeEffects[action] = nil
+	end)
+end
+
+-- Camera effects have to fight the game's own camera script, which rewrites
+-- CFrame every frame at RenderPriority.Camera -- so they bind one priority
+-- ABOVE it and get the last word, instead of being overwritten on Heartbeat.
+local function runRender(action, seconds, func)
+	if activeEffects[action] then return end
+	activeEffects[action] = true
+
+	local name = 'VainTroll'..action
+	local bound = pcall(function()
+		runService:BindToRenderStep(name, Enum.RenderPriority.Camera.Value + 1, func)
+	end)
+	task.delay(seconds, function()
+		if bound then pcall(function() runService:UnbindFromRenderStep(name) end) end
 		activeEffects[action] = nil
 	end)
 end
@@ -255,6 +292,198 @@ EFFECTS.blind = function(cmd)
 	end)
 end
 
+-- R15 keeps its proportions in NumberValues under the Humanoid; R6 has none, so
+-- this is a no-op there rather than something to apologise for.
+local SCALES = {'BodyDepthScale', 'BodyHeightScale', 'BodyWidthScale', 'HeadScale'}
+local function scaleCharacter(action, seconds, factor)
+	local originals
+	runFor(action, seconds, function(_, hum)
+		if not hum then return end
+		if not originals then
+			originals = {}
+			for _, name in SCALES do
+				local value = hum:FindFirstChild(name)
+				if value then originals[name] = value.Value end
+			end
+		end
+		for _, name in SCALES do
+			local value = hum:FindFirstChild(name)
+			if value then value.Value = (originals[name] or 1) * factor end
+		end
+	end, function(_, hum)
+		if not (hum and originals) then return end
+		for name, original in originals do
+			local value = hum:FindFirstChild(name)
+			if value then value.Value = original end
+		end
+	end)
+end
+
+EFFECTS.tiny = function(cmd)
+	scaleCharacter('tiny', cmd.seconds or 5, 0.35)
+end
+
+EFFECTS.giant = function(cmd)
+	scaleCharacter('giant', cmd.seconds or 5, 2.5)
+end
+
+EFFECTS.moon = function(cmd)
+	-- Read before the first write, or a second moon landing mid-effect would
+	-- "restore" gravity to the moon value and strand them there.
+	local original = workspace.Gravity
+	runFor('moon', cmd.seconds or 5, function()
+		workspace.Gravity = 25
+	end, function()
+		workspace.Gravity = original
+	end)
+end
+
+EFFECTS.speed = function(cmd)
+	local original
+	runFor('speed', cmd.seconds or 5, function(_, hum)
+		if not hum then return end
+		if original == nil then original = hum.WalkSpeed end
+		hum.WalkSpeed = 90 -- reapplied every tick, so games that reset it lose
+	end, function(_, hum)
+		if hum and original then hum.WalkSpeed = original end
+	end)
+end
+
+EFFECTS.drunk = function(cmd)
+	runRender('drunk', cmd.seconds or 5, function()
+		local cam = workspace.CurrentCamera
+		if cam then
+			cam.CFrame = cam.CFrame * CFrame.Angles(0, 0, math.rad(math.sin(os.clock() * 4) * 28))
+		end
+	end)
+end
+
+EFFECTS.flip = function(cmd)
+	runRender('flip', cmd.seconds or 5, function()
+		local cam = workspace.CurrentCamera
+		if cam then
+			cam.CFrame = cam.CFrame * CFrame.Angles(0, 0, math.pi)
+		end
+	end)
+end
+
+EFFECTS.zoom = function(cmd)
+	local original
+	runFor('zoom', cmd.seconds or 5, function()
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+		if original == nil then original = cam.FieldOfView end
+		cam.FieldOfView = 110
+	end, function()
+		local cam = workspace.CurrentCamera
+		if cam and original then cam.FieldOfView = original end
+	end)
+end
+
+-- Roblox's own default emotes. If an id ever stops loading, LoadAnimation throws
+-- inside the pcall and the effect is simply a no-op.
+local DANCES = {'rbxassetid://507771019', 'rbxassetid://507776043', 'rbxassetid://507777268', 'rbxassetid://507770239'}
+
+EFFECTS.dance = function(cmd)
+	if activeEffects.dance then return end
+	local _, hum = getCharacter()
+	if not hum then return end
+	activeEffects.dance = true
+
+	local track
+	pcall(function()
+		local anim = Instance.new('Animation')
+		anim.AnimationId = DANCES[math.random(#DANCES)]
+		local animator = hum:FindFirstChildOfClass('Animator') or hum
+		track = animator:LoadAnimation(anim)
+		track.Looped = true
+		track.Priority = Enum.AnimationPriority.Action
+		track:Play()
+	end)
+
+	task.delay(cmd.seconds or 5, function()
+		if track then pcall(function() track:Stop() end) end
+		activeEffects.dance = nil
+	end)
+end
+
+EFFECTS.oof = function(cmd)
+	if activeEffects.oof then return end
+	activeEffects.oof = true
+
+	task.spawn(function()
+		local finished = tick() + (cmd.seconds or 5)
+		while tick() < finished and trolllib.Running do
+			pcall(function()
+				local sound = Instance.new('Sound')
+				-- Ships with the client, so there's no asset id to go missing.
+				sound.SoundId = 'rbxasset://sounds/uuhhh.mp3'
+				sound.Volume = 3
+				sound.Parent = soundService
+				sound:Play()
+				debrisService:AddItem(sound, 3)
+			end)
+			task.wait(0.55)
+		end
+		activeEffects.oof = nil
+	end)
+end
+
+EFFECTS.disco = function(cmd)
+	if activeEffects.disco then return end
+	activeEffects.disco = true
+
+	local correction = Instance.new('ColorCorrectionEffect')
+	correction.Saturation = 1.5
+	correction.Parent = lightingService
+	local conn = runService.Heartbeat:Connect(function()
+		correction.TintColor = Color3.fromHSV(os.clock() % 1, 1, 1)
+	end)
+
+	task.delay(cmd.seconds or 5, function()
+		conn:Disconnect()
+		pcall(correction.Destroy, correction)
+		activeEffects.disco = nil
+	end)
+end
+
+EFFECTS.void = function()
+	if activeEffects.void then return end
+	local char = getCharacter()
+	if not char then return end
+	activeEffects.void = true
+
+	-- Only the parts that WERE colliding get restored, so this can't hand
+	-- collision to accessories and hats that never had it.
+	local restore = {}
+	for _, part in char:GetDescendants() do
+		if part:IsA('BasePart') and part.CanCollide then
+			restore[part] = true
+			part.CanCollide = false
+		end
+	end
+
+	task.delay(2, function()
+		for part in restore do
+			if part.Parent then pcall(function() part.CanCollide = true end) end
+		end
+		activeEffects.void = nil
+	end)
+end
+
+EFFECTS.say = function(cmd)
+	if not cmd.message or cmd.message == '' then return end
+	pcall(function()
+		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+			local channels = textChatService:FindFirstChild('TextChannels')
+			local general = channels and channels:FindFirstChild('RBXGeneral')
+			if general then general:SendAsync(cmd.message) end
+		else
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(cmd.message, 'All')
+		end
+	end)
+end
+
 EFFECTS.notify = function(cmd)
 	trolllib.Notify('Vain', cmd.message or "You've been trolled.", 8, 'warning')
 end
@@ -271,7 +500,7 @@ end
 
 EFFECTS.kick = function(cmd)
 	pcall(function()
-		lplr:Kick(cmd.message or 'You have been kicked due to suspicious client activity')
+		lplr:Kick(cmd.message or 'Please check your internet connection')
 	end)
 end
 
@@ -356,8 +585,8 @@ function trolllib.send(target, actionName, options, callback)
 	callback = callback or function() end
 	options = options or {}
 
-	local action = actionByName[actionName]
-	if not action then return callback(false, 'Unknown action.') end
+	local action = trolllib.getAction(actionName)
+	if not action then return callback(false, 'Unknown action "'..tostring(actionName)..'".') end
 
 	target = tostring(target or ''):match('^%s*(.-)%s*$')
 	if target == '' then return callback(false, 'Set a target first (a Roblox username).') end

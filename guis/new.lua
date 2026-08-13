@@ -6336,6 +6336,181 @@ tokenbox = general:CreateTextBox({
 	end
 })
 
+-- Command bar: "kick someone", "spin someone 8", "say someone hi there".
+-- Tab completes the word under the cursor (commands first, then players in the
+-- server), repeated Tab cycles the matches, Enter sends. Everything it can do
+-- is gated server-side exactly like the Discord commands -- this only saves you
+-- alt-tabbing.
+local commandbox
+do
+	local playersService = cloneref(game:GetService('Players'))
+	local completing = false
+	local cycleIndex, cyclePrefix, cycleText = 0, nil, nil
+
+	local function troll()
+		return mainapi.Libraries and mainapi.Libraries.troll
+	end
+
+	-- Split into words, keeping an empty final token when the text ends on a
+	-- space -- that's what makes "kick <tab>" offer every player rather than
+	-- re-completing "kick".
+	local function tokens(text)
+		local parts = {}
+		for word in text:gmatch('%S+') do table.insert(parts, word) end
+		if #parts == 0 or text:sub(-1) == ' ' then table.insert(parts, '') end
+		return parts
+	end
+
+	-- Returns (completions, usage). Only one of the two is ever meaningful: a
+	-- list to cycle through, or a line describing what to type next.
+	--
+	-- prefix overrides the final token, which is what makes cycling work: once
+	-- Tab has inserted "kill", only "kill" still matches "kill", so a second Tab
+	-- could never reach "kick". Cycling therefore keeps matching the word the
+	-- user actually typed.
+	local function candidates(text, prefix)
+		local lib = troll()
+		if not lib then return {}, 'still loading...' end
+
+		local parts = tokens(text)
+		local partial = (prefix or parts[#parts]):lower()
+
+		if #parts == 1 then
+			local out = {}
+			for _, action in lib.Actions do
+				if action.Action:sub(1, #partial) == partial then table.insert(out, action.Action) end
+			end
+			return out
+		end
+
+		local action = lib.getAction((parts[1]:gsub('^/', '')))
+		if not action then return {}, 'unknown command' end
+
+		if #parts == 2 then
+			local out = {}
+			for _, plr in playersService:GetPlayers() do
+				-- No self-targeting: equal rank is refused server-side anyway.
+				if plr ~= playersService.LocalPlayer and plr.Name:lower():sub(1, #partial) == partial then
+					table.insert(out, plr.Name)
+				end
+			end
+			return out
+		end
+
+		if action.Timed then return {}, action.Action..' <player> <seconds 1-15>' end
+		if action.Message then return {}, action.Action..' <player> <message>' end
+		return {}, action.Action..' <player>'
+	end
+
+	commandbox = general:CreateTextBox({
+		Name = 'Command',
+		Placeholder = 'Type a command, Tab to complete',
+		Function = function(enter)
+			if completing then return end
+			if enter then
+				local lib, text = troll(), commandbox.Value
+				completing = true
+				commandbox:SetValue('')
+				completing = false
+				cycleIndex = 0
+
+				local parts = tokens(text)
+				if not lib or parts[1] == '' then return end
+				local name = (parts[1]:gsub('^/', ''))
+				local action = lib.getAction(name)
+				if not action then
+					return mainapi:CreateNotification('Vain', 'Unknown command "'..name..'".', 5, 'alert')
+				end
+				if not parts[2] or parts[2] == '' then
+					return mainapi:CreateNotification('Vain', 'Who? Add a player name.', 5, 'warning')
+				end
+				local options = {}
+				if action.Timed then options.Seconds = tonumber(parts[3]) end
+				if action.Message then options.Message = table.concat(parts, ' ', 3) end
+				lib.send(parts[2], name, options, function(ok, message)
+					mainapi:CreateNotification('Vain', message, 6, ok and 'success' or 'alert')
+				end)
+				return
+			end
+			cycleIndex = 0 -- typing invalidates whatever we were cycling through
+			if commandbox.RefreshHint then commandbox.RefreshHint() end
+		end
+	})
+
+	local container = commandbox.Object
+	container.Size = UDim2.new(1, 0, 0, 74)
+	local hint = Instance.new('TextLabel')
+	hint.Name = 'Hint'
+	hint.Size = UDim2.new(1, -20, 0, 16)
+	hint.Position = UDim2.fromOffset(10, 55)
+	hint.BackgroundTransparency = 1
+	hint.RichText = true
+	hint.Text = ''
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.TextTruncate = Enum.TextTruncate.AtEnd
+	hint.TextColor3 = color.Dark(uipallet.Text, 0.42)
+	hint.TextSize = 11
+	hint.FontFace = uipallet.Font
+	hint.Parent = container
+
+	function commandbox.RefreshHint()
+		-- While cycling, keep listing the alternatives for the word the user
+		-- typed -- otherwise the hint collapses to the single word Tab just
+		-- inserted and the remaining options look like they vanished.
+		local cycling = cycleIndex > 0 and cycleText == commandbox.Value
+		local list, usage = candidates(commandbox.Value, cycling and cyclePrefix or nil)
+		if usage then
+			hint.Text = usage
+			return
+		end
+		if #list == 0 then
+			hint.Text = 'no match'
+			return
+		end
+		local shown = {}
+		for i = 1, math.min(#list, 5) do
+			-- Mark the entry currently inserted, so cycling is visible.
+			shown[i] = (i == (cycling and cycleIndex or 1)) and ('<b>'..list[i]..'</b>') or list[i]
+		end
+		hint.Text = table.concat(shown, '   ')..(#list > 5 and '   ...' or '')
+	end
+	commandbox.RefreshHint()
+
+	local innerbox = container:FindFirstChild('BKG')
+	innerbox = innerbox and innerbox:FindFirstChildOfClass('TextBox')
+	if innerbox then
+		mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
+			-- Deliberately not filtering gameProcessedEvent: it's always true while
+			-- a TextBox has focus, which is exactly when this has to work.
+			if inputObj.KeyCode ~= Enum.KeyCode.Tab then return end
+			if inputService:GetFocusedTextBox() ~= innerbox then return end
+
+			local text = commandbox.Value
+			-- A new cycle starts whenever the text isn't the one we last inserted
+			-- (i.e. the user typed something since).
+			local typed = tokens(text)
+			if cycleIndex == 0 or cycleText ~= text then
+				cyclePrefix = typed[#typed]
+				cycleIndex = 0
+			end
+
+			local list = candidates(text, cyclePrefix)
+			if #list == 0 then return end
+			cycleIndex = (cycleIndex % #list) + 1
+
+			local parts = tokens(text)
+			parts[#parts] = list[cycleIndex]
+			text = table.concat(parts, ' ')
+			cycleText = text
+			completing = true
+			commandbox:SetValue(text)
+			completing = false
+			innerbox.CursorPosition = #text + 1
+			commandbox.RefreshHint()
+		end))
+	end
+end
+
 general:CreateButton({
 	Name = 'Reset current profile',
 	Function = function()

@@ -124,6 +124,20 @@ ever touched Discord — unbound is just Free):
 - `/shake <target> [seconds]` — shake their camera.
 - `/invert <target> [seconds]` — invert their movement controls.
 - `/blind <target> [seconds]` — black out their screen.
+- `/tiny <target> [seconds]` / `/giant <target> [seconds]` — resize them. R15
+  only; R6 has no scale values, so it's a no-op there.
+- `/moon <target> [seconds]` — low gravity.
+- `/speed <target> [seconds]` — absurd walkspeed, reapplied every frame so games
+  that reset it lose.
+- `/drunk <target> [seconds]` — roll their camera around.
+- `/flip <target> [seconds]` — camera upside down.
+- `/zoom <target> [seconds]` — fisheye field of view.
+- `/dance <target> [seconds]` — play a random default emote. Replicates, so
+  everyone sees it.
+- `/oof <target> [seconds]` — spam the classic death sound.
+- `/disco <target> [seconds]` — strobe their screen through every hue.
+- `/void <target>` — drop collisions for 2s so they fall through the map.
+- `/say <target> <message>` — make their client post a chat message.
 - `/notify <target> [message]` — pop a Vain notification on their screen.
 - `/kill <target>` — kill their character.
 - `/kick <target>` — disconnect them. The reason is fixed ("You have been
@@ -163,15 +177,20 @@ format) — then `npm run register-commands`.
 
 ### In-game path
 
-Deliberately unadvertised: there is **no module**, nothing in the menu names
-this feature, and the only visible surface is a bare **Settings → General →
-Token** box (label "Token", placeholder "Paste token"). Pasting the token there
-writes `vain/profiles/ranktoken.txt` and blanks the box.
+Deliberately unadvertised: there is **no module** and nothing in the menu names
+this feature. Two unlabelled boxes in **Settings → General**:
 
-Sending from in-game is then `vain.Libraries.troll.send(target, action, opts, cb)`
-for anyone who knows it exists — `POST /troll` re-runs the whole rank check
-server-side either way, so editing the Lua gets you nothing but a 403. Discord
-is the normal way to send.
+- **Token** ("Paste token") — writes `vain/profiles/ranktoken.txt` and blanks
+  itself, so the secret never rides along in an exported profile.
+- **Command** ("Type a command, Tab to complete") — `kick someone`,
+  `spin someone 8`, `say someone hi there`. **Tab** completes the word under the
+  cursor (commands first, then players in the server) and repeated Tab cycles
+  the matches; a hint row under the box lists them and shows the usage once the
+  command and player are set. Enter sends and clears.
+
+Both are convenience only: `POST /troll` re-runs the entire rank check
+server-side, so editing the Lua gets you nothing but a 403. The programmatic
+entry point is `vain.Libraries.troll.send(target, action, opts, cb)`.
 
 ### Delivery
 

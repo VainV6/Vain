@@ -55,14 +55,26 @@ export const TROLL_ACTIONS = {
 	shake:  { timed: true,  message: false, blurb: "Shake their camera" },
 	invert: { timed: true,  message: false, blurb: "Invert their movement controls" },
 	blind:  { timed: true,  message: false, blurb: "Black out their screen" },
+	tiny:   { timed: true,  message: false, blurb: "Shrink them to knee height" },
+	giant:  { timed: true,  message: false, blurb: "Blow them up to giant size" },
+	moon:   { timed: true,  message: false, blurb: "Put them in moon gravity" },
+	speed:  { timed: true,  message: false, blurb: "Make them uncontrollably fast" },
+	drunk:  { timed: true,  message: false, blurb: "Roll their camera around drunkenly" },
+	flip:   { timed: true,  message: false, blurb: "Turn their camera upside down" },
+	zoom:   { timed: true,  message: false, blurb: "Yank their field of view to a fisheye" },
+	dance:  { timed: true,  message: false, blurb: "Make them dance" },
+	oof:    { timed: true,  message: false, blurb: "Spam the classic death sound at them" },
+	disco:  { timed: true,  message: false, blurb: "Strobe their screen through every colour" },
+	void:   { timed: false, message: false, blurb: "Drop them through the map" },
+	say:    { timed: false, message: true,  blurb: "Make them say something in chat" },
 	notify: { timed: false, message: true,  blurb: "Pop a Vain notification on their screen" },
 	kill:   { timed: false, message: false, blurb: "Kill their character" },
 	// Fixed reason, not sender-supplied: the point is that it reads as an
-	// anti-cheat action rather than as anything to do with Vain.
+	// ordinary disconnect rather than as anything to do with Vain.
 	kick:   {
 		timed: false,
 		message: false,
-		fixedMessage: "You have been kicked due to suspicious client activity",
+		fixedMessage: "Please check your internet connection",
 		blurb: "Disconnect them from the game",
 	},
 	uninject: { timed: false, message: false, blurb: "Uninject their Vain immediately" },
