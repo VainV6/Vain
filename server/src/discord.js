@@ -294,12 +294,7 @@ export async function authorizeTroll(env, invokerDiscordId, { target, action, se
 		return { error: "You can only troll someone at a strictly lower rank than you." };
 	}
 
-	const { cmd, error } = normalizeCommand({
-		action,
-		seconds,
-		message,
-		from: (invokerRec && invokerRec.robloxUsername) || "someone",
-	});
+	const { cmd, error } = normalizeCommand({ action, seconds, message });
 	if (error) return { error };
 
 	const queued = await enqueueCommand(env, found.robloxUserId, cmd);

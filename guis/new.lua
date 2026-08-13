@@ -6521,7 +6521,9 @@ do
 			return out
 		end
 
-		if action.Timed then return {}, action.Action..' <player> <seconds 1-15>' end
+		if action.Timed then
+			return {}, action.Action..' <player> <seconds '..tostring(lib.MinSeconds or 1)..'-'..tostring(lib.MaxSeconds or 120)..'>'
+		end
 		if action.Message then return {}, action.Action..' <player> <message>' end
 		return {}, action.Action..' <player>'
 	end

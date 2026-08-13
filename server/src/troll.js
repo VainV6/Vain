@@ -34,8 +34,8 @@ export const MAX_QUEUED = 5;
 export const MAX_AGE_MS = 90 * 1000;
 
 export const MIN_SECONDS = 1;
-export const MAX_SECONDS = 15;
-export const DEFAULT_SECONDS = 5;
+export const MAX_SECONDS = 120;
+export const DEFAULT_SECONDS = 10;
 export const MAX_MESSAGE = 120;
 
 /**
@@ -91,17 +91,20 @@ function sanitizeMessage(raw) {
  * Validate + clamp raw user input into the exact command object that goes on
  * the wire. Returns { error } or { cmd }.
  */
-export function normalizeCommand({ action, seconds, message, from }) {
+export function normalizeCommand({ action, seconds, message }) {
 	const key = String(action || "").toLowerCase().trim();
 	const spec = TROLL_ACTIONS[key];
 	if (!spec) {
 		return { error: `Unknown action "${action}". Try one of: ${ACTION_NAMES.join(", ")}.` };
 	}
 
+	// No sender on the wire, deliberately. Nothing tells the target that a
+	// command ran or who ran it, and the way to guarantee that is for their
+	// client to never receive the name in the first place -- not to receive it
+	// and decline to draw it.
 	const cmd = {
 		id: crypto.randomUUID(),
 		action: key,
-		from: sanitizeMessage(from) || "someone",
 		at: Date.now(),
 	};
 

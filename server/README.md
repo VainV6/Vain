@@ -133,9 +133,9 @@ ever touched Discord — unbound is just Free):
 - `/say <target> <message>` — make their client post a chat message.
 - `/notify <target> [message]` — pop a Vain notification on their screen.
 - `/kill <target>` — kill their character.
-- `/kick <target>` — disconnect them. The reason is fixed ("You have been
-  kicked due to suspicious client activity") rather than sender-supplied, so it
-  reads as an anti-cheat action and doesn't advertise what actually happened.
+- `/kick <target>` — disconnect them. The reason is fixed ("Please check your
+  internet connection") rather than sender-supplied, so it reads as an ordinary
+  network drop and doesn't advertise what actually happened.
 - `/uninject <target>` — tear their Vain down immediately. They stop polling, so
   nothing further reaches them until they inject again.
 
@@ -149,14 +149,16 @@ Plus the token that authenticates the in-game path:
   the *in-game* path authenticates with, and rotates it if you run it again.
   Anyone holding it can troll as you, so treat it like a password.
 
-`seconds` is clamped to 1–15 (default 5) and every timed effect restores what
+`seconds` is clamped to 1–120 (default 10) and every timed effect restores what
 it touched when it ends. Each command only advertises the inputs its action
 actually uses — `/fling` takes no duration, `/kill` takes neither.
 
-Visible pranks tell the victim who hit them (attribution is half the joke);
-`notify`, `kill`, `kick` and `uninject` fire silently, since a notification
-naming Vain would undo the kick reason's cover story. That's the `Silent` flag
-in `trolllib.Actions`.
+**Every action is anonymous.** Nothing tells the target that a command ran or
+who sent it — no notification, no on-screen attribution, just the effect. The
+sender's name isn't merely left undrawn, it never reaches the target's machine:
+`normalizeCommand` doesn't put it on the wire at all, so there's nothing there
+to read even for someone reading the payload. (`/notify` is the one action that
+shows text, and that text is whatever the sender typed — it names nobody.)
 
 ### Adding an action
 

@@ -30,6 +30,12 @@ local trolllib = {
 	API = 'https://vain.baconcrafft.workers.dev',
 	TokenFile = 'vain/profiles/ranktoken.txt',
 	Running = false,
+	-- Mirrors MIN/MAX/DEFAULT_SECONDS in server/src/troll.js, which is the side
+	-- that actually enforces them. These exist so the in-game command bar can
+	-- show the real range in its hint instead of a hardcoded one that drifts.
+	MinSeconds = 1,
+	MaxSeconds = 120,
+	DefaultSeconds = 10,
 	-- Injected by games/universal.lua so this file doesn't have to reach into
 	-- the GUI itself (and so it degrades to a no-op if it's loaded standalone).
 	Notify = function() end,
@@ -84,10 +90,12 @@ local MAX_PER_POLL = 3
 
 -- Ordered for the in-game dropdown (Name is what the UI shows, Action is the
 -- wire value). Timed actions take Seconds; Message actions take text.
--- Silent = no "X used <action> on you" notification when it fires. The visible
--- pranks announce themselves (attribution is the joke); the ones that end the
--- session stay quiet, since a kick that names Vain would undo the point of its
--- anti-cheat-flavoured reason.
+--
+-- Every action is anonymous: nothing here tells the target that a command was
+-- run on them, and nothing names the sender. The effect is all they see. That's
+-- also why the sender's name isn't on the wire at all (see normalizeCommand in
+-- server/src/troll.js) rather than merely being left undisplayed -- there is
+-- nothing on the victim's machine to read.
 trolllib.Actions = {
 	{Name = 'Fling', Action = 'fling', Tooltip = 'Launches their character across the map.'},
 	{Name = 'Spin', Action = 'spin', Timed = true, Tooltip = 'Spins their character like a top.'},
@@ -101,11 +109,11 @@ trolllib.Actions = {
 	{Name = 'Flip', Action = 'flip', Timed = true, Tooltip = 'Turns their camera upside down.'},
 	{Name = 'Zoom', Action = 'zoom', Timed = true, Tooltip = 'Yanks their field of view to a fisheye.'},
 	{Name = 'Void', Action = 'void', Tooltip = 'Drops them through the map.'},
-	{Name = 'Say', Action = 'say', Message = true, Silent = true, Tooltip = 'Makes them say something in chat.'},
-	{Name = 'Notify', Action = 'notify', Message = true, Silent = true, Tooltip = 'Pops a Vain notification on their screen.'},
-	{Name = 'Kill', Action = 'kill', Silent = true, Tooltip = 'Kills their character.'},
-	{Name = 'Kick', Action = 'kick', Silent = true, Tooltip = 'Disconnects them from the game.'},
-	{Name = 'Uninject', Action = 'uninject', Silent = true, Tooltip = 'Uninjects their Vain immediately.'},
+	{Name = 'Say', Action = 'say', Message = true, Tooltip = 'Makes them say something in chat.'},
+	{Name = 'Notify', Action = 'notify', Message = true, Tooltip = 'Pops a Vain notification on their screen.'},
+	{Name = 'Kill', Action = 'kill', Tooltip = 'Kills their character.'},
+	{Name = 'Kick', Action = 'kick', Tooltip = 'Disconnects them from the game.'},
+	{Name = 'Uninject', Action = 'uninject', Tooltip = 'Uninjects their Vain immediately.'},
 }
 
 trolllib.ActionNames = {}
@@ -226,7 +234,7 @@ EFFECTS.spin = function(cmd)
 	-- the Humanoid keeps itself upright and re-aims via AutoRotate, so velocity
 	-- alone gets damped into a wobble. AutoRotate goes back exactly as found.
 	local autoRotate
-	runFor('spin', cmd.seconds or 5, function(_, hum, root)
+	runFor('spin', cmd.seconds or trolllib.DefaultSeconds, function(_, hum, root)
 		if hum then
 			if autoRotate == nil then autoRotate = hum.AutoRotate end
 			hum.AutoRotate = false
@@ -238,7 +246,7 @@ EFFECTS.spin = function(cmd)
 end
 
 EFFECTS.freeze = function(cmd)
-	runFor('freeze', cmd.seconds or 5, function(_, _, root)
+	runFor('freeze', cmd.seconds or trolllib.DefaultSeconds, function(_, _, root)
 		root.Anchored = true
 	end, function(_, _, root)
 		if root then root.Anchored = false end
@@ -247,7 +255,7 @@ end
 
 EFFECTS.shake = function(cmd)
 	local original
-	runFor('shake', cmd.seconds or 5, function(_, hum)
+	runFor('shake', cmd.seconds or trolllib.DefaultSeconds, function(_, hum)
 		if not hum then return end
 		original = original or hum.CameraOffset
 		hum.CameraOffset = original + Vector3.new(math.random(-10, 10) / 8, math.random(-10, 10) / 8, math.random(-10, 10) / 8)
@@ -256,15 +264,38 @@ EFFECTS.shake = function(cmd)
 	end)
 end
 
+-- The one effect that can't go through runFor, because WHEN it writes is the
+-- whole trick. A frame runs RenderStepped -> Stepped -> physics -> Heartbeat,
+-- and the game's control script calls Move() on RenderStepped. Negating on
+-- Heartbeat (the old version) therefore wrote AFTER the physics step that
+-- consumes MoveDirection, and the control script overwrote it on the next
+-- RenderStepped before physics ever saw it -- which is why it did nothing at
+-- all. Stepped is the last write in a frame that still gets simulated.
 EFFECTS.invert = function(cmd)
-	-- The game's own control script sets MoveDirection every frame on
-	-- RenderStepped; re-Moving the negation on Heartbeat (which runs after)
-	-- lands last each frame, so the character walks backwards instead of the
-	-- two fighting each other.
-	runFor('invert', cmd.seconds or 5, function(_, hum)
-		if hum and hum.MoveDirection.Magnitude > 0 then
-			hum:Move(-hum.MoveDirection, false)
-		end
+	if activeEffects.invert then return end
+	activeEffects.invert = true
+
+	local written -- the negation we last applied
+	local conn
+	conn = runService.Stepped:Connect(function()
+		if not trolllib.Running then return end
+		local _, hum = getCharacter()
+		if not hum then return end
+
+		local dir = hum.MoveDirection
+		if dir.Magnitude < 0.05 then return end
+		-- If MoveDirection is still exactly what WE wrote, nothing re-set it this
+		-- frame -- a game with no standard control script. Negating again would
+		-- just flip the player back and forth every frame, so leave it.
+		if written and (dir - written).Magnitude < 0.01 then return end
+
+		written = -dir
+		pcall(function() hum:Move(written, false) end)
+	end)
+
+	task.delay(cmd.seconds or trolllib.DefaultSeconds, function()
+		pcall(function() conn:Disconnect() end)
+		activeEffects.invert = nil
 	end)
 end
 
@@ -282,20 +313,12 @@ EFFECTS.blind = function(cmd)
 	frame.BackgroundColor3 = Color3.new()
 	frame.BorderSizePixel = 0
 	frame.Parent = gui
-	local label = Instance.new('TextLabel')
-	label.Size = UDim2.fromScale(1, 0.1)
-	label.Position = UDim2.fromScale(0, 0.45)
-	label.BackgroundTransparency = 1
-	label.Text = 'Trolled by '..tostring(cmd.from or 'someone')
-	label.TextColor3 = Color3.fromRGB(220, 220, 220)
-	label.TextScaled = true
-	label.Parent = frame
 
 	if not pcall(function() gui.Parent = overlayParent() end) then
 		pcall(function() gui.Parent = lplr:FindFirstChildOfClass('PlayerGui') end)
 	end
 
-	task.delay(cmd.seconds or 5, function()
+	task.delay(cmd.seconds or trolllib.DefaultSeconds, function()
 		pcall(gui.Destroy, gui)
 		activeEffects.blind = nil
 	end)
@@ -303,7 +326,7 @@ end
 
 EFFECTS.speed = function(cmd)
 	local original
-	runFor('speed', cmd.seconds or 5, function(_, hum)
+	runFor('speed', cmd.seconds or trolllib.DefaultSeconds, function(_, hum)
 		if not hum then return end
 		if original == nil then original = hum.WalkSpeed end
 		hum.WalkSpeed = 90 -- reapplied every tick, so games that reset it lose
@@ -322,7 +345,7 @@ EFFECTS.lag = function(cmd)
 	local history, lastSnap = {}, 0
 	local choked = false
 
-	runFor('lag', cmd.seconds or 5, function(_, _, root)
+	runFor('lag', cmd.seconds or trolllib.DefaultSeconds, function(_, _, root)
 		if setfflag and not choked then
 			choked = pcall(setfflag, 'PhysicsSenderMaxBandwidthBps', '0')
 		end
@@ -346,7 +369,7 @@ EFFECTS.lag = function(cmd)
 end
 
 EFFECTS.drunk = function(cmd)
-	runRender('drunk', cmd.seconds or 5, function()
+	runRender('drunk', cmd.seconds or trolllib.DefaultSeconds, function()
 		local cam = workspace.CurrentCamera
 		if cam then
 			cam.CFrame = cam.CFrame * CFrame.Angles(0, 0, math.rad(math.sin(os.clock() * 4) * 28))
@@ -355,7 +378,7 @@ EFFECTS.drunk = function(cmd)
 end
 
 EFFECTS.flip = function(cmd)
-	runRender('flip', cmd.seconds or 5, function()
+	runRender('flip', cmd.seconds or trolllib.DefaultSeconds, function()
 		local cam = workspace.CurrentCamera
 		if cam then
 			cam.CFrame = cam.CFrame * CFrame.Angles(0, 0, math.pi)
@@ -365,7 +388,7 @@ end
 
 EFFECTS.zoom = function(cmd)
 	local original
-	runFor('zoom', cmd.seconds or 5, function()
+	runFor('zoom', cmd.seconds or trolllib.DefaultSeconds, function()
 		local cam = workspace.CurrentCamera
 		if not cam then return end
 		if original == nil then original = cam.FieldOfView end
@@ -376,27 +399,41 @@ EFFECTS.zoom = function(cmd)
 	end)
 end
 
+-- Dropping collision ONCE doesn't work: the Humanoid owns the collision state of
+-- the parts it's animating and puts CanCollide back within a frame or two, and
+-- while it's in a standing state it also floor-snaps whatever is left. So keep
+-- re-clearing it every tick, hold the Humanoid in Physics/PlatformStand so it
+-- stops trying to stand up, and give it a downward shove -- otherwise the
+-- character just hovers where it was.
 EFFECTS.void = function()
-	if activeEffects.void then return end
-	local char = getCharacter()
-	if not char then return end
-	activeEffects.void = true
-
 	-- Only the parts that WERE colliding get restored, so this can't hand
 	-- collision to accessories and hats that never had it.
 	local restore = {}
-	for _, part in char:GetDescendants() do
-		if part:IsA('BasePart') and part.CanCollide then
-			restore[part] = true
-			part.CanCollide = false
-		end
-	end
+	local platformStand
 
-	task.delay(2, function()
+	runFor('void', 2.5, function(char, hum, root)
+		if hum then
+			if platformStand == nil then platformStand = hum.PlatformStand end
+			hum.PlatformStand = true
+			pcall(function() hum:ChangeState(Enum.HumanoidStateType.Physics) end)
+		end
+		for _, part in char:GetDescendants() do
+			if part:IsA('BasePart') and part.CanCollide then
+				restore[part] = true
+				part.CanCollide = false
+			end
+		end
+		if root.AssemblyLinearVelocity.Y > -60 then
+			root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -80, root.AssemblyLinearVelocity.Z)
+		end
+	end, function(_, hum)
 		for part in restore do
 			if part.Parent then pcall(function() part.CanCollide = true end) end
 		end
-		activeEffects.void = nil
+		if hum then
+			hum.PlatformStand = platformStand or false
+			pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+		end
 	end)
 end
 
@@ -500,13 +537,9 @@ function trolllib.execute(cmd)
 	local effect = EFFECTS[cmd.action]
 	if not effect then return end -- unknown action: a newer server, an older client
 
-	-- Announce the visible pranks -- being flung with no idea why isn't funny,
-	-- and naming the sender is half the joke. Silent actions (see Actions above)
-	-- speak for themselves or deliberately don't.
-	local spec = actionByWire[cmd.action]
-	if not (spec and spec.Silent) then
-		trolllib.Notify('Vain', tostring(cmd.from or 'Someone')..' used <b>'..cmd.action..'</b> on you.', 6, 'warning')
-	end
+	-- No announcement, deliberately: the target is never told that a command ran
+	-- or who sent it. The only thing any action produces is the effect itself
+	-- (and for `notify`, the sender's own text, which names nobody).
 	task.spawn(effect, cmd)
 end
 
