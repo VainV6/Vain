@@ -4049,6 +4049,14 @@ function mainapi:CreateCategory(categorysettings)
 		end
 
 		function moduleapi:Toggle(multiple)
+			-- Set shared.VainDebugToggles = true before injecting to print every
+			-- toggle with the call stack that caused it. Modules flipping on their
+			-- own is otherwise near-impossible to attribute: Load(), keybinds,
+			-- option Functions that cycle their module, Legit Mode and Uninject all
+			-- call straight into here, and the result looks identical from outside.
+			if shared.VainDebugToggles then
+				print('[Vain] toggle', self.Name, self.Enabled and 'ON->OFF' or 'OFF->ON', debug.traceback())
+			end
 			-- Locked modules must never actually enable, not even via a saved
 			-- "was enabled" profile restoring through Load() (which calls this
 			-- directly, bypassing the button's own click-handler Locked check).
@@ -4362,7 +4370,7 @@ function mainapi:CreateOverlay(categorysettings)
 		Button = self.Overlays:CreateToggle({
 			Name = categorysettings.Name,
 			Function = function(callback)
-				window.Visible = callback and (clickgui.Visible or categoryapi.Pinned)
+				window.Visible = callback and (clickgui.Visible or categoryapi.Pinned) and not mainapi:Streamproofed()
 				if not callback then
 					for _, v in categoryapi.Connections do
 						v:Disconnect()
@@ -4478,7 +4486,7 @@ function mainapi:CreateOverlay(categorysettings)
 	end
 
 	function categoryapi:Update()
-		window.Visible = self.Button.Enabled and (clickgui.Visible or self.Pinned)
+		window.Visible = self.Button.Enabled and (clickgui.Visible or self.Pinned) and not mainapi:Streamproofed()
 		if self.Expanded then
 			self:Expand()
 		end
@@ -5268,8 +5276,22 @@ local function restackNotifications()
 	end
 end
 
+-- Streamer mode: nothing Vain draws on screen by itself may appear. The click
+-- GUI is exempt on purpose -- that one is deliberate, you open it and you close
+-- it. Everything else (notifications, watermark/text GUI, target info, radar,
+-- session info -- every overlay) shows up unannounced, which is exactly what
+-- gets you caught on stream.
+--
+-- Deliberately NOT included: ESP, chams, tracers and the rest of the render
+-- modules. They're drawn into the world rather than announced by Vain, and
+-- hiding them would just turn the client off. Toggle those yourself.
+function mainapi:Streamproofed()
+	return self.Streamproof and self.Streamproof.Enabled or false
+end
+
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
+	if self:Streamproofed() then return end
 	local color = type == 'alert' and Color3.fromRGB(250, 50, 56) or type == 'warning' and Color3.fromRGB(236, 129, 43) or type == 'success' and Color3.fromRGB(80, 200, 100) or type == 'gold' and Color3.fromRGB(255, 215, 90) or Color3.fromRGB(220, 220, 220)
 	if license.Closet or license.Webhook then
 		if license.Webhook then
@@ -6335,6 +6357,26 @@ local general = mainapi.Categories.Main:CreateSettingsPane({Name = 'General'})
 mainapi.MultiKeybind = general:CreateToggle({
 	Name = 'Enable Multi-Keybinding',
 	Tooltip = 'Allows multiple keys to be bound to a module (eg. G + H)'
+})
+mainapi.Streamproof = general:CreateToggle({
+	Name = 'Streamproof',
+	Tooltip = 'Hides everything Vain puts on screen by itself -- notifications, the text GUI/watermark, and every overlay (target info, radar, session info). The menu still opens normally. Does NOT hide ESP or other render modules.',
+	Function = function()
+		-- Re-run each overlay's own visibility rule; both places that set it now
+		-- consult Streamproofed(), so this both hides and restores correctly.
+		for _, category in mainapi.Categories do
+			if category.Type == 'Overlay' and category.Update then
+				pcall(function() category:Update() end)
+			end
+		end
+		if notifications then
+			-- Anything already on screen goes with it, rather than lingering for
+			-- its remaining seconds after you flipped this on.
+			for _, v in notifications:GetChildren() do
+				pcall(function() v:Destroy() end)
+			end
+		end
+	end
 })
 mainapi.LegitOnly = general:CreateToggle({
 	Name = 'Legit Mode',
