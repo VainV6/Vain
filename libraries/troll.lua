@@ -96,6 +96,7 @@ trolllib.Actions = {
 	{Name = 'Invert', Action = 'invert', Timed = true, Tooltip = 'Inverts their movement controls.'},
 	{Name = 'Blind', Action = 'blind', Timed = true, Tooltip = 'Blacks out their screen.'},
 	{Name = 'Speed', Action = 'speed', Timed = true, Tooltip = 'Makes them uncontrollably fast.'},
+	{Name = 'Lag', Action = 'lag', Timed = true, Tooltip = 'Rubber-bands them like a bad connection.'},
 	{Name = 'Drunk', Action = 'drunk', Timed = true, Tooltip = 'Rolls their camera around drunkenly.'},
 	{Name = 'Flip', Action = 'flip', Timed = true, Tooltip = 'Turns their camera upside down.'},
 	{Name = 'Zoom', Action = 'zoom', Timed = true, Tooltip = 'Yanks their field of view to a fisheye.'},
@@ -308,6 +309,39 @@ EFFECTS.speed = function(cmd)
 		hum.WalkSpeed = 90 -- reapplied every tick, so games that reset it lose
 	end, function(_, hum)
 		if hum and original then hum.WalkSpeed = original end
+	end)
+end
+
+-- Two halves, because packet lag and FELT lag aren't the same thing. Choking
+-- the physics sender (what the Fake Lag module does) is the authentic part, but
+-- it only shows up to OTHER players -- the victim's own client keeps rendering
+-- them moving smoothly and they notice nothing. Snapping them back to where
+-- they were half a second ago is what actually feels like a bad connection, so
+-- do both, and fall back to just the snapping on executors without setfflag.
+EFFECTS.lag = function(cmd)
+	local history, lastSnap = {}, 0
+	local choked = false
+
+	runFor('lag', cmd.seconds or 5, function(_, _, root)
+		if setfflag and not choked then
+			choked = pcall(setfflag, 'PhysicsSenderMaxBandwidthBps', '0')
+		end
+
+		local now = os.clock()
+		table.insert(history, {at = now, cf = root.CFrame})
+		while history[1] and now - history[1].at > 1 do
+			table.remove(history, 1)
+		end
+
+		if now - lastSnap >= 0.45 and history[1] then
+			lastSnap = now
+			root.CFrame = history[1].cf
+		end
+	end, function()
+		if choked then
+			-- 38760 is the stock value the Fake Lag module restores to.
+			pcall(setfflag, 'PhysicsSenderMaxBandwidthBps', '38760')
+		end
 	end)
 end
 

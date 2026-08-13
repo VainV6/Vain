@@ -55,6 +55,7 @@ export const TROLL_ACTIONS = {
 	invert: { timed: true,  message: false, blurb: "Invert their movement controls" },
 	blind:  { timed: true,  message: false, blurb: "Black out their screen" },
 	speed:  { timed: true,  message: false, blurb: "Make them uncontrollably fast" },
+	lag:    { timed: true,  message: false, blurb: "Rubber-band them with fake lag" },
 	drunk:  { timed: true,  message: false, blurb: "Roll their camera around drunkenly" },
 	flip:   { timed: true,  message: false, blurb: "Turn their camera upside down" },
 	zoom:   { timed: true,  message: false, blurb: "Yank their field of view to a fisheye" },
