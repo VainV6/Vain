@@ -70,6 +70,9 @@ local delfile = delfile or function(file) writefile(file, '') end
 local HOLD_SECONDS = 20
 local IDLE_INTERVAL = 1
 local FALLBACK_INTERVAL = 5
+-- While in fallback, retry a hold this often, so a Worker that starts honouring
+-- ?wait= later (a deploy, an outage ending) is picked up without a reinject.
+local PROBE_INTERVAL = 300
 -- Never run more than this many effects from a single poll, however many the
 -- queue somehow ended up holding.
 local MAX_PER_POLL = 3
@@ -448,24 +451,42 @@ function trolllib.poll(hold)
 		if i > MAX_PER_POLL then break end
 		trolllib.execute(cmd)
 	end
-	return true
+	return true, #decoded.commands
 end
 
 function trolllib.start()
 	if trolllib.Running or not req then return end
 	trolllib.Running = true
 	task.spawn(function()
-		local holding, failures = true, 0
+		local holding, failures, lastProbe = true, 0, 0
 		while trolllib.Running do
-			local ok = trolllib.poll(holding and HOLD_SECONDS or 0)
-			if holding then
-				-- A held request that fails twice running is an executor that
-				-- won't keep one open (or a network that won't), not a blip.
-				failures = ok and 0 or failures + 1
-				if failures >= 2 then
-					holding = false
+			local hold = holding and HOLD_SECONDS or 0
+			if not holding and tick() - lastProbe > PROBE_INTERVAL then
+				hold, lastProbe = HOLD_SECONDS, tick()
+			end
+
+			local started = tick()
+			local ok, count = trolllib.poll(hold)
+			local elapsed = tick() - started
+
+			if hold > 0 then
+				if not ok then
+					-- A held request that fails twice running is an executor that
+					-- won't keep one open (or a network that won't), not a blip.
+					failures += 1
+					if failures >= 2 then holding = false end
+				elseif count == 0 and elapsed < hold * 0.5 then
+					-- Answered an empty hold immediately: the far side is ignoring
+					-- ?wait= (an older Worker does exactly that). Looping at
+					-- IDLE_INTERVAL against it would mean ~86k requests a day --
+					-- five times WORSE than the plain polling this replaced -- so
+					-- treat it as no hold support at all.
+					holding, failures = false, 0
+				else
+					holding, failures = true, 0
 				end
 			end
+
 			task.wait(holding and IDLE_INTERVAL or FALLBACK_INTERVAL)
 		end
 	end)
