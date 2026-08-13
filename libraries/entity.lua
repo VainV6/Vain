@@ -113,7 +113,8 @@ local function resolveRankLevel(userId, onResolved)
 				Url = RANK_API .. '/rank/' .. tostring(userId),
 				Method = 'GET',
 			})
-			if ok and res and (res.StatusCode == 200 or res.Success) and res.Body then
+			local heard = ok and res and (res.StatusCode == 200 or res.Success) and res.Body ~= nil
+			if heard then
 				local decOk, decoded = pcall(httpService.JSONDecode, httpService, res.Body)
 				if decOk and decoded and decoded.tier then
 					level = RANK_LEVEL[decoded.tier] or 0
@@ -121,11 +122,50 @@ local function resolveRankLevel(userId, onResolved)
 			end
 			rankLevelCache[userId] = level
 			rankPending[userId] = nil
-			if onResolved then onResolved(level) end
+			-- Second value says whether we actually HEARD from the Worker, so a
+			-- caller can tell a real "no rank" from a lookup that never landed.
+			if onResolved then onResolved(level, heard) end
 		end)
 	end
 	return 0 -- fail-open: Free until resolved
 end
+
+-- Resolve the LOCAL player's rank immediately, at library load. It only needs a
+-- UserId, but it used to be kicked off from addEntity's local-player branch --
+-- which sits behind waits for the Humanoid (up to 10s) and the RootPart (up to
+-- 10s, unbounded under StreamingEnabled). So anything reading the rank early
+-- (main.lua's welcome line) saw the fail-open 0 and reported an Owner as Free,
+-- purely because their character hadn't finished loading.
+-- Retried, unlike every other lookup here: a target's failed lookup just means
+-- one player stays targetable, but the LOCAL one failing downgrades you to Free
+-- for the whole session, and the cache would hold that answer forever.
+task.spawn(function()
+	if not req then
+		-- No request function means the rank can never be known on this executor.
+		-- Say so immediately rather than leaving callers waiting on a lookup that
+		-- is never going to happen.
+		entitylib.localRankResolved = true
+		return
+	end
+	for attempt = 1, 3 do
+		rankLevelCache[lplr.UserId] = nil -- clear the fail-open 0 so this retries
+		local done, gotLevel, gotHeard = false, 0, false
+		resolveRankLevel(lplr.UserId, function(level, heard)
+			gotLevel, gotHeard, done = level, heard, true
+		end)
+		local deadline = tick() + 5
+		repeat task.wait(0.1) until done or tick() > deadline
+		if gotHeard or attempt == 3 then
+			entitylib.localRankLevel = gotLevel
+			entitylib.localRankResolved = true
+			if entitylib.Running then
+				entitylib.refresh()
+			end
+			return
+		end
+		task.wait(1)
+	end
+end)
 
 entitylib.targetCheck = function(ent)
 	if ent.Player and not ent.NPC then
@@ -340,11 +380,9 @@ entitylib.addEntity = function(char, plr, teamfunc)
 			if plr == lplr then
 				entitylib.character = entity
 				entitylib.isAlive = true
-				resolveRankLevel(plr.UserId, function(level)
-					entitylib.localRankLevel = level
-					entitylib.localRankResolved = true
-					entitylib.refresh()
-				end)
+				-- (the local rank itself is resolved at library load, above -- it
+				-- needs no character, and waiting for one is what used to report
+				-- ranked players as Free during a slow spawn)
 				entitylib.Events.LocalAdded:Fire(entity)
 			else
 				entity.Targetable = entitylib.targetCheck(entity)
