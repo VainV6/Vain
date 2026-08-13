@@ -57,10 +57,19 @@ end
 -- which the isfile above then reads as "no token".
 local delfile = delfile or function(file) writefile(file, '') end
 
--- How often each client asks for its own pending commands. Every injected user
--- polls this forever, so it's also the Worker's steady-state request rate --
--- 5s keeps a joke feeling instant without turning into a request firehose.
-local POLL_INTERVAL = 5
+-- Listening is a LONG POLL, not a poll: the Worker holds the request open for
+-- HOLD_SECONDS and answers the instant a command lands. One request therefore
+-- covers 20s of listening rather than 5s, which is what keeps an injected user
+-- inside Cloudflare's 100k requests/day free tier (~4.1k/day each instead of
+-- ~17.3k) without making anything slower -- a held request returns as soon as
+-- there's something to return.
+--
+-- Not every executor will keep an HTTP request open that long, so two failures
+-- in a row drop this client to plain polling for the session (FALLBACK_INTERVAL,
+-- the old behaviour) rather than spinning on requests that keep timing out.
+local HOLD_SECONDS = 20
+local IDLE_INTERVAL = 1
+local FALLBACK_INTERVAL = 5
 -- Never run more than this many effects from a single poll, however many the
 -- queue somehow ended up holding.
 local MAX_PER_POLL = 3
@@ -417,34 +426,47 @@ end
 
 -- ── receiving ────────────────────────────────────────────────────────────────
 
-function trolllib.poll()
-	-- Name and place ride along so this same poll doubles as the presence
+-- Returns whether the request itself worked, which is what start() watches to
+-- decide whether holds are viable on this executor.
+function trolllib.poll(hold)
+	-- Name and place ride along so this same request doubles as the presence
 	-- heartbeat behind /list -- one request, not two. Both are display-only on
 	-- the far side; escaped because a display name can contain anything.
 	local ok, res = pcall(req, {
 		Url = trolllib.API..'/commands/'..tostring(lplr.UserId)
 			..'?name='..httpService:UrlEncode(lplr.Name)
-			..'&place='..tostring(game.PlaceId),
+			..'&place='..tostring(game.PlaceId)
+			..'&wait='..tostring(hold or 0),
 		Method = 'GET',
 	})
-	if not (ok and res and (res.StatusCode == 200 or res.Success) and res.Body) then return end
+	if not (ok and res and (res.StatusCode == 200 or res.Success) and res.Body) then return false end
 
 	local decOk, decoded = pcall(httpService.JSONDecode, httpService, res.Body)
-	if not decOk or type(decoded) ~= 'table' or type(decoded.commands) ~= 'table' then return end
+	if not decOk or type(decoded) ~= 'table' or type(decoded.commands) ~= 'table' then return false end
 
 	for i, cmd in decoded.commands do
 		if i > MAX_PER_POLL then break end
 		trolllib.execute(cmd)
 	end
+	return true
 end
 
 function trolllib.start()
 	if trolllib.Running or not req then return end
 	trolllib.Running = true
 	task.spawn(function()
+		local holding, failures = true, 0
 		while trolllib.Running do
-			pcall(trolllib.poll)
-			task.wait(POLL_INTERVAL)
+			local ok = trolllib.poll(holding and HOLD_SECONDS or 0)
+			if holding then
+				-- A held request that fails twice running is an executor that
+				-- won't keep one open (or a network that won't), not a blip.
+				failures = ok and 0 or failures + 1
+				if failures >= 2 then
+					holding = false
+				end
+			end
+			task.wait(holding and IDLE_INTERVAL or FALLBACK_INTERVAL)
 		end
 	end)
 end

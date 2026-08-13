@@ -210,6 +210,34 @@ export async function listPresence(env) {
 		.sort((a, b) => b.at - a.at);
 }
 
+// ---- long poll --------------------------------------------------------------
+// A client asks the Worker to HOLD its request open instead of hanging up and
+// asking again in five seconds. One held request covers HOLD_MAX seconds of
+// listening, so Worker invocations drop by roughly the hold length: at 20s
+// that's ~4.1k requests/day per injected client instead of ~17.3k.
+//
+// It does NOT reduce KV reads -- the hold still checks the queue every
+// CHECK_INTERVAL, and reads have their own daily cap -- so raising
+// CHECK_INTERVAL is the knob that trades delivery latency for KV budget. Real
+// push (no polling at all, either side) needs cross-request signalling, which
+// on Cloudflare means Durable Objects.
+
+export const HOLD_MAX = 20;
+const CHECK_INTERVAL = 5;
+
+export async function waitForCommands(env, robloxUserId, holdSeconds) {
+	const deadline = Date.now() + Math.max(0, holdSeconds) * 1000;
+	for (;;) {
+		const commands = await takeCommands(env, robloxUserId);
+		if (commands.length > 0) return commands;
+
+		const remaining = deadline - Date.now();
+		if (remaining <= 0) return [];
+		// Sleeping costs wall time, not CPU time, and Workers bill CPU.
+		await new Promise((resolve) => setTimeout(resolve, Math.min(CHECK_INTERVAL * 1000, remaining)));
+	}
+}
+
 /**
  * Hand a client its pending commands and clear them (each command runs once).
  */

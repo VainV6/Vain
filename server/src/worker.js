@@ -31,7 +31,7 @@
  */
 
 import { handleDiscordInteraction, resolveRank, authorizeTroll, discordUserIdFromToken } from "./discord.js";
-import { takeCommands, touchPresence } from "./troll.js";
+import { HOLD_MAX, touchPresence, waitForCommands } from "./troll.js";
 
 function json(obj, status = 200) {
 	return new Response(JSON.stringify(obj), {
@@ -92,7 +92,12 @@ export default {
 				name: url.searchParams.get("name"),
 				place: url.searchParams.get("place"),
 			}));
-			return json({ commands: await takeCommands(env, cmdMatch[1]) });
+			// ?wait=N holds the request open for up to N seconds, answering the
+			// moment a command shows up. Absent (or 0) keeps the old behaviour of
+			// answering immediately, which is what a client falls back to when its
+			// executor can't keep an HTTP request open that long.
+			const wait = Math.min(HOLD_MAX, Math.max(0, Number(url.searchParams.get("wait")) || 0));
+			return json({ commands: await waitForCommands(env, cmdMatch[1], wait) });
 		}
 
 		return json({ error: "not found" }, 404);
