@@ -2,13 +2,18 @@
  * Discord slash-command bot for Vain's rank system.
  *
  * A member's Discord ROLE is their RANK (Free/unbound < Privileged < Owner).
- * Ranks do two things, both implemented elsewhere and just SERVED here:
+ * Ranks do three things, all implemented elsewhere and just SERVED here:
  *   - In-game target immunity (libraries/entity.lua polls GET /rank/<id> on
  *     this Worker, see worker.js) -- a lower rank's targeting modules can
  *     never see a higher rank as a valid target.
  *   - Command hierarchy: a rank can run /whitelistadmin commands on anyone at
  *     a STRICTLY lower rank. Owner acts on Privileged/Free, Privileged acts
  *     on Free only, Free can't run these at all.
+ *   - Troll commands (one slash command per action here -- /fling, /kick, ... --
+ *     or the in-game Troll Commands module via POST /troll): the same
+ *     strictly-lower-rank rule, Privileged and up only, queueing a fixed joke
+ *     effect for the target's own Vain client to run. See ./troll.js for the
+ *     catalogue and authorizeTroll() below for the gate.
  *
  * `/whitelist edit` just binds a Discord identity to a Roblox account (open
  * to everyone, Free included -- it's identity mapping, not a privilege) so
@@ -23,6 +28,7 @@
  */
 
 import { verifyKey } from "discord-interactions";
+import { ACTION_NAMES, enqueueCommand, normalizeCommand } from "./troll.js";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -128,6 +134,102 @@ async function putRecord(env, discordUserId, rec) {
 	await env.KEYS.put(`discord:${discordUserId}`, JSON.stringify(rec));
 }
 
+// ---- in-game issuer tokens ------------------------------------------------------
+// Discord signs its own interactions, but a Vain client firing POST /troll from
+// inside a game has no signature to offer -- so a ranked member runs
+// `/whitelist token`, gets a random secret, and pastes it into Vain. The token
+// is what maps that HTTP request back to a Discord identity (and therefore a
+// rank). Rotating simply issues a new one and drops the old key.
+
+async function issueToken(env, discordUserId) {
+	const bytes = crypto.getRandomValues(new Uint8Array(24));
+	const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+	let rec = (await getRecord(env, discordUserId)) || { banned: false };
+	if (rec.token) await env.KEYS.delete(`token:${rec.token}`);
+	rec.token = token;
+	await putRecord(env, discordUserId, rec);
+	await env.KEYS.put(`token:${token}`, JSON.stringify({ discordUserId }));
+
+	return token;
+}
+
+export async function discordUserIdFromToken(env, token) {
+	if (!token || !/^[a-f0-9]{48}$/.test(token)) return null;
+	const raw = await env.KEYS.get(`token:${token}`);
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw).discordUserId || null;
+	} catch {
+		return null;
+	}
+}
+
+// Resolves a troll target to a Roblox user id. Unlike resolveTarget() this does
+// NOT require the target to have a whitelist record -- an unbound player is just
+// Free rank, and Free is exactly who gets trolled. A Roblox username resolves
+// directly; a mention/snowflake still needs a binding, since that's the only way
+// to know which Roblox account the Discord user plays on.
+async function resolveTrollTarget(env, target) {
+	const raw = String(target || "").trim();
+	if (!raw) return { error: "No target given." };
+
+	const mention = raw.match(/^<@!?(\d+)>$/) || raw.match(/^(\d{15,25})$/);
+	if (mention) {
+		const rec = await getRecord(env, mention[1]);
+		if (!rec || !rec.robloxUserId) {
+			return { error: "That Discord user hasn't linked a Roblox account (`/whitelist edit`), so there's nobody to send it to." };
+		}
+		return { robloxUserId: rec.robloxUserId, robloxName: rec.robloxUsername, discordUserId: mention[1] };
+	}
+
+	const resolved = await resolveRobloxUser(raw);
+	if (resolved.error) return { error: resolved.error };
+
+	let discordUserId = null;
+	const revRaw = await env.KEYS.get(`roblox:${resolved.id}`);
+	if (revRaw) {
+		try { discordUserId = JSON.parse(revRaw).discordUserId || null; } catch { /* unbound */ }
+	}
+	return { robloxUserId: resolved.id, robloxName: resolved.name, discordUserId };
+}
+
+/**
+ * The single gate both troll paths (Discord `/troll` and in-game POST /troll)
+ * go through: invoker must be Privileged or above AND strictly outrank the
+ * target. Returns { error } or { targetName }.
+ */
+export async function authorizeTroll(env, invokerDiscordId, { target, action, seconds, message }, ctx) {
+	const invokerRec = await getRecord(env, invokerDiscordId);
+	if (invokerRec && invokerRec.banned) return { error: "You're banned from using Vain's whitelist commands." };
+
+	const invokerRank = await resolveRank(env, invokerDiscordId, ctx);
+	if (levelOf(invokerRank.tier) < RANK_LEVEL.priviliged) {
+		return { error: "Troll commands are Privileged and above only." };
+	}
+
+	const found = await resolveTrollTarget(env, target);
+	if (found.error) return { error: found.error };
+
+	const targetTier = found.discordUserId ? (await resolveRank(env, found.discordUserId, ctx)).tier : null;
+	if (levelOf(invokerRank.tier) <= levelOf(targetTier)) {
+		return { error: "You can only troll someone at a strictly lower rank than you." };
+	}
+
+	const { cmd, error } = normalizeCommand({
+		action,
+		seconds,
+		message,
+		from: (invokerRec && invokerRec.robloxUsername) || "someone",
+	});
+	if (error) return { error };
+
+	const queued = await enqueueCommand(env, found.robloxUserId, cmd);
+	if (queued.error) return { error: queued.error };
+
+	return { targetName: found.robloxName || found.robloxUserId };
+}
+
 // Resolves a staff-provided target string to { discordUserId, rec }, trying a
 // Discord mention/snowflake first, then a Roblox username via the reverse index.
 async function resolveTarget(env, target) {
@@ -228,6 +330,59 @@ async function cmdWhitelistRemove(interaction, env, ctx) {
 	return json({ type: 5, data: { flags: 64 } });
 }
 
+async function cmdWhitelistToken(interaction, env, ctx) {
+	const invokerId = interaction.member.user.id;
+
+	ctx.waitUntil((async () => {
+		const rank = await resolveRank(env, invokerId, ctx);
+		if (levelOf(rank.tier) < RANK_LEVEL.priviliged) {
+			return sendFollowup(env, interaction, "❌ Tokens are only useful to Privileged and above -- they authenticate in-game troll commands.");
+		}
+		const token = await issueToken(env, invokerId);
+		await sendFollowup(
+			env,
+			interaction,
+			"Your in-game token (paste it into Vain -> Utility -> Troll Commands -> Paste Token). " +
+			"Anyone holding it can troll as you, so don't share or stream it -- re-run this command to rotate.\n" +
+			`||\`${token}\`||`
+		);
+	})());
+
+	return json({ type: 5, data: { flags: 64 } });
+}
+
+// ---- troll commands -------------------------------------------------------
+
+function flatOption(interaction, name) {
+	const opt = (interaction.data.options || []).find((o) => o.name === name);
+	return opt ? opt.value : undefined;
+}
+
+// One handler behind every troll command: /fling, /kick, /spin ... differ only
+// in interaction.data.name, which IS the action, so there's nothing per-command
+// to keep in sync -- adding an entry to TROLL_ACTIONS gives you the slash
+// command (register-commands.mjs generates it) and the routing (HANDLERS below).
+async function cmdTrollAction(interaction, env, ctx) {
+	const invokerId = interaction.member.user.id;
+	const action = interaction.data.name;
+	const target = flatOption(interaction, "target");
+	const seconds = flatOption(interaction, "seconds");
+	const message = flatOption(interaction, "message");
+
+	ctx.waitUntil((async () => {
+		const result = await authorizeTroll(env, invokerId, { target, action, seconds, message }, ctx);
+		if (result.error) return sendFollowup(env, interaction, `❌ ${result.error}`);
+		await sendFollowup(
+			env,
+			interaction,
+			`✅ Queued **${action}** for **${result.targetName}**. It fires the next time their Vain client checks in ` +
+			"(within a few seconds) -- nothing happens if they aren't running Vain."
+		);
+	})());
+
+	return json({ type: 5, data: { flags: 64 } });
+}
+
 // Shared permission gate for /whitelistadmin: invoker must outrank the target.
 // Returns null (allowed) or a rejection message.
 async function checkHierarchy(env, invokerId, targetId, ctx) {
@@ -318,16 +473,24 @@ const HANDLERS = {
 	"whitelist:edit": cmdWhitelistEdit,
 	"whitelist:view": cmdWhitelistView,
 	"whitelist:remove": cmdWhitelistRemove,
+	"whitelist:token": cmdWhitelistToken,
 	"whitelistadmin:lookup": cmdLookup,
 	"whitelistadmin:force": cmdForce,
 	"whitelistadmin:ban": cmdBan,
 	"whitelistadmin:unban": cmdUnban,
+	// One flat command per troll action (/fling, /kick, ...) -- keyed by bare
+	// name, see routeCommand.
+	...Object.fromEntries(ACTION_NAMES.map((action) => [action, cmdTrollAction])),
 };
 
 function routeCommand(interaction, env, ctx) {
 	const name = interaction.data.name;
-	const sub = interaction.data.options && interaction.data.options[0] && interaction.data.options[0].name;
-	const fn = HANDLERS[`${name}:${sub}`];
+	// Only options[0] of type 1/2 (SUB_COMMAND / SUB_COMMAND_GROUP) is a
+	// subcommand -- for a flat command like /troll, options[0] is just its first
+	// argument, so route on the bare command name instead.
+	const first = interaction.data.options && interaction.data.options[0];
+	const sub = first && (first.type === 1 || first.type === 2) ? first.name : null;
+	const fn = HANDLERS[sub ? `${name}:${sub}` : name];
 	if (!fn) return json({ type: 4, data: { content: "Unknown command.", flags: 64 } });
 	return fn(interaction, env, ctx);
 }

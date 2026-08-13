@@ -20,6 +20,10 @@
  *   node register-commands.mjs
  */
 
+// Imported rather than re-listed so the troll commands can never drift from the
+// catalogue the Worker actually accepts.
+import { TROLL_ACTIONS, MIN_SECONDS, MAX_SECONDS, DEFAULT_SECONDS, MAX_MESSAGE } from "./src/troll.js";
+
 const APP_ID = process.env.DISCORD_APPLICATION_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -50,6 +54,11 @@ const commands = [
 				type: 1,
 				name: "remove",
 				description: "Unlink your account",
+			},
+			{
+				type: 1,
+				name: "token",
+				description: "Get (or rotate) your in-game token for troll commands -- Privileged and above",
 			},
 		],
 	},
@@ -92,6 +101,37 @@ const commands = [
 			},
 		],
 	},
+	// One flat command per troll action -- /fling, /spin, /kick and so on --
+	// generated straight from the catalogue the Worker validates against, so the
+	// two can't drift. Flat means no subcommands: routeCommand() in
+	// src/discord.js routes these on the bare command name, which IS the action.
+	// Each command only advertises the inputs its action actually reads.
+	...Object.entries(TROLL_ACTIONS).map(([action, spec]) => ({
+		name: action,
+		description: `${spec.blurb} -- Privileged and above, on lower ranks only`.slice(0, 100),
+		options: [
+			{ type: 3, name: "target", description: "Discord mention or Roblox username", required: true },
+			...(spec.timed
+				? [{
+					type: 4,
+					name: "seconds",
+					description: `How long it lasts (${MIN_SECONDS}-${MAX_SECONDS}, default ${DEFAULT_SECONDS})`,
+					required: false,
+					min_value: MIN_SECONDS,
+					max_value: MAX_SECONDS,
+				}]
+				: []),
+			...(spec.message
+				? [{
+					type: 3,
+					name: "message",
+					description: `What it says (max ${MAX_MESSAGE} chars)`,
+					required: false,
+					max_length: MAX_MESSAGE,
+				}]
+				: []),
+		],
+	})),
 ];
 
 async function main() {

@@ -9,6 +9,10 @@ local mainapi = {
 	HeldKeybinds = {},
 	Keybind = {'RightShift'},
 	Loaded = false,
+	-- True from construction until finishLoading() (main.lua) clears it. Lets
+	-- Uninject() (below) tell an in-progress load apart from a settled one --
+	-- see the comment on Uninject for why that distinction is load-bearing.
+	Booting = true,
 	Libraries = {},
 	Modules = {},
 	FavouritesCategory = false,
@@ -47,6 +51,7 @@ local mainapi = {
 		['Auto Honor'] = 'UPD',
 		['FPS Unlock'] = 'NEW',
 		['Inventory ESP'] = 'NEW',
+		['Troll Commands'] = 'NEW',
 		['Party List'] = 'UPD',
 	},
 	-- Preset templates: hardcoded starter profiles users can browse + apply from the

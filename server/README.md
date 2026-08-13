@@ -16,6 +16,9 @@ What it does instead: a member's **Discord role is their rank** (Free/unbound
 - **Command hierarchy** (`/whitelistadmin` below) — a rank can run moderation
   commands on anyone at a *strictly lower* rank. Owner acts on
   Privileged/Free, Privileged acts on Free only, Free can't run these at all.
+- **Troll commands** (`/fling`, `/kick`, … below, or the in-game Troll Commands
+  module) — same strictly-lower-rank rule, Privileged and up. Queues one of a
+  fixed set of joke effects for the target's own Vain client to run on itself.
 
 `/whitelist edit` just binds a Discord identity to a Roblox account, open to
 **everyone** including Free — it's identity mapping, not a privilege, and it's
@@ -32,9 +35,14 @@ Cloudflare Worker  ──(roblox:<id> → discord:<id> → live guild-member rol
     └── { tier: "owner" | "priviliged" | null }
 
 Discord member
-    │  /whitelist edit, /whitelistadmin ...
+    │  /whitelist edit, /whitelistadmin ..., /fling, /kick, ...
     ▼
 Cloudflare Worker  (POST /discord/interactions, Ed25519-signed)
+
+Privileged+ Vain client                      target's Vain client
+    │  POST /troll (Bearer token)                 │  GET /commands/<own UserId>
+    ▼                                             ▼   (polled every 5s)
+Cloudflare Worker  ──(rank check, then cmdq:<targetRobloxId>)──► effect runs, queue cleared
 ```
 
 ## One-time deploy
@@ -102,11 +110,69 @@ allowed):
 - `/whitelistadmin ban <target>` — blocks a record from ever (re)binding.
 - `/whitelistadmin unban <target>` — reverses a ban.
 
+Troll commands — **one command per action**, all Privileged and above, all
+usable only on someone at a strictly lower rank. `<target>` is a Discord
+mention (needs a binding) or a Roblox username (works whether or not they've
+ever touched Discord — unbound is just Free):
+
+- `/fling <target>` — launch their character across the map.
+- `/spin <target> [seconds]` — spin them like a top.
+- `/freeze <target> [seconds]` — anchor them in place.
+- `/shake <target> [seconds]` — shake their camera.
+- `/invert <target> [seconds]` — invert their movement controls.
+- `/blind <target> [seconds]` — black out their screen.
+- `/notify <target> [message]` — pop a Vain notification on their screen.
+- `/kick <target> [message]` — disconnect them from the game.
+
+Plus the token that authenticates the in-game path:
+- `/whitelist token` — self-service, Privileged and above: issues the secret
+  the *in-game* module authenticates with, and rotates it if you run it again.
+  Anyone holding it can troll as you, so treat it like a password.
+
+`seconds` is clamped to 1–15 (default 5) and every timed effect restores what
+it touched when it ends. Each command only advertises the inputs its action
+actually uses — `/fling` takes no duration, `/spin` takes no message.
+
+### Adding an action
+
+The catalogue in [`src/troll.js`](src/troll.js) drives everything: the slash
+command and its options are generated from it by
+[`register-commands.mjs`](register-commands.mjs), and routing is keyed off the
+command name, which *is* the action. So a new effect is two edits — an entry
+there, and its implementation in `EFFECTS` in
+[`libraries/troll.lua`](../libraries/troll.lua) (those keys are the wire
+format) — then `npm run register-commands`.
+
+### In-game path
+
+Vain's **Utility → Troll Commands** module is the same feature without Discord:
+paste your token once, pick a target (or leave it blank to use whoever you're
+aiming at), pick an action, toggle the module (or hit its keybind) to send. The
+module only builds the request — `POST /troll` re-runs the whole rank check
+server-side, so editing the Lua gets you nothing but a 403.
+
+### Delivery
+
+Commands are **pulled, not pushed**: they sit in `cmdq:<robloxUserId>` until
+that player's own client asks for them (`GET /commands/<id>`, every 5s), and
+expire after 120s. So a command only ever lands on someone *running Vain* —
+send one to a player who isn't injected and it simply evaporates.
+
 ## Honest limits
 
 This is a courtesy system, not a security boundary. Anything enforced
-client-side (the target-immunity check in `libraries/entity.lua`) can be
+client-side (the target-immunity check in `libraries/entity.lua`, and every
+troll effect, which by definition runs on the victim's own machine) can be
 patched out by someone willing to edit the Lua before running it — same
 caveat as every other client-side protection in this codebase. What this
 setup actually buys: a low-friction way for Discord roles to translate into
 in-game recognition and a moderation command surface, not tamper-resistance.
+
+Two specifics worth knowing about the troll path:
+
+- `GET /commands/<robloxUserId>` is public and clears the queue, so anyone who
+  knows a Roblox user id can poll it and swallow commands meant for that player.
+  That's a nuisance (a joke doesn't fire), not a compromise — nothing sensitive
+  is in there, and nobody can *send* without a token.
+- KV has no compare-and-swap, so two commands queued for the same target in the
+  same instant can overwrite each other. Worth exactly what it costs to fix.

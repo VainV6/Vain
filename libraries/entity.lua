@@ -87,10 +87,18 @@ end
 -- block normal targeting for everyone.
 local RANK_API = 'https://vain.baconcrafft.workers.dev'
 local RANK_LEVEL = {owner = 2, priviliged = 1}
+-- Display names by level, for anything that reports the local tier back to the
+-- user (main.lua's welcome notification). Level 0 is everyone unbound/unranked.
+-- Spelled properly here even though the wire/role name carries the original
+-- 'priviliged' typo -- that key is config, this is UI.
+entitylib.RankNames = {[0] = 'Free', [1] = 'Privileged', [2] = 'Owner'}
 local req = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request)
 local httpService = cloneref(game:GetService('HttpService'))
 
 entitylib.localRankLevel = 0
+-- Flips once the local player's own lookup has come back (whatever the answer),
+-- so a caller can tell "still Free by default" apart from "confirmed Free".
+entitylib.localRankResolved = false
 
 local rankLevelCache = {}
 local rankPending = {}
@@ -334,6 +342,7 @@ entitylib.addEntity = function(char, plr, teamfunc)
 				entitylib.isAlive = true
 				resolveRankLevel(plr.UserId, function(level)
 					entitylib.localRankLevel = level
+					entitylib.localRankResolved = true
 					entitylib.refresh()
 				end)
 				entitylib.Events.LocalAdded:Fire(entity)

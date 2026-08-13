@@ -2,10 +2,13 @@ name = "vain"
 main = "src/worker.js"
 compatibility_date = "2024-11-01"
 
-# KV namespace holding two things: discord:<id>/roblox:<id> whitelist bindings,
-# and rankcache:<id> (the 60s-cached live Discord role check). Vain's file
-# delivery no longer goes through this Worker at all (see root README.md) --
-# nothing here gates loading, it's just bot + rank-lookup state.
+# KV namespace holding, all of it bot + rank state (Vain's file delivery no
+# longer goes through this Worker at all -- see root README.md -- so nothing
+# here gates loading):
+#   discord:<id> / roblox:<id>  whitelist bindings, both directions
+#   rankcache:<id>              the 60s-cached live Discord role check
+#   token:<token>               in-game issuer tokens from /whitelist token
+#   cmdq:<robloxUserId>         pending troll commands, expiring after 120s
 [[kv_namespaces]]
 binding = "KEYS"
 id = "2a990242fbdf4b4aac895337ea05cb10"

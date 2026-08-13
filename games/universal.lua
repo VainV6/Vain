@@ -406,6 +406,20 @@ end
 local hash = loadstring(downloadFile('vain/libraries/hash.lua'), 'hash')()
 local prediction = loadstring(downloadFile('vain/libraries/prediction.lua'), 'prediction')()
 entitylib = loadstring(downloadFile('vain/libraries/entity.lua'), 'entitylibrary')()
+-- pcall'd unlike the libraries above, which are load-bearing for everything
+-- here: this one is optional, and it sits at TOP LEVEL of this file, so a
+-- download failure (a client pinned to a commit from before troll.lua existed,
+-- a GitHub blip) throwing here would abort every module registered below it --
+-- the exact "most modules silently vanished" failure this file already guards
+-- against elsewhere. Missing library just means no troll commands.
+local trolllib
+do
+	local ok, res = pcall(function()
+		return loadstring(downloadFile('vain/libraries/troll.lua'), 'trolllibrary')()
+	end)
+	trolllib = ok and type(res) == 'table' and res or nil
+	if not ok then warn('[Vain] troll library failed to load: '..tostring(res)) end
+end
 
 local _isAboveVoidParams = RaycastParams.new()
 _isAboveVoidParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -517,6 +531,7 @@ vain.Libraries.entity = entitylib
 vain.Libraries.whitelist = whitelist
 vain.Libraries.prediction = prediction
 vain.Libraries.hash = hash
+vain.Libraries.troll = trolllib
 vain.Libraries.auraanims = {
 	Normal = {
 		{
@@ -8154,6 +8169,140 @@ run(function()
     			teleportService:TeleportToPlaceInstance(game.PlaceId, shared.vainserverhopprevious)
     		end
     	end,
+    })
+end)
+
+run(function()
+    if not trolllib then return end -- optional library, see its guarded load above
+
+    local TrollCommands
+    local Target
+    local Action
+    local Duration
+    local Message
+    local Token
+
+    -- The RECEIVING half starts here for every Vain user, whether or not they
+    -- ever open this module: it's what makes a queued command land at all, and
+    -- putting it behind a toggle would mean the only trollable people are the
+    -- ones who opted in. Ranked users are protected the same way target
+    -- immunity works -- the Worker refuses anything aimed at an equal or higher
+    -- rank, so this can only ever fire effects sent by someone above you.
+    trolllib.Notify = notif
+    trolllib.start()
+    vain:Clean(function()
+        trolllib.stop()
+    end)
+
+    -- Blank Target means "whoever I'm aiming at". EntityMouse already filters
+    -- to Targetable entities, so a higher-ranked player can't even be picked up
+    -- here -- the same immunity every targeting module gets.
+    local function aimedTarget()
+        local ent = entitylib.EntityMouse({
+            Players = true,
+            Part = 'RootPart',
+            Range = math.huge,
+        })
+        return ent and ent.Player and ent.Player.Name or nil
+    end
+
+    local function tokenNotif(ok, message)
+        notif('Troll Commands', message, 6, ok and 'success' or 'alert')
+    end
+
+    TrollCommands = vain.Categories.Utility:CreateModule({
+        Name = 'Troll Commands',
+        -- One-shot, like Server Hop: toggling it fires a single command and
+        -- immediately untoggles, which also means it can be bound to a key and
+        -- used mid-fight without opening the menu.
+        Function = function(callback)
+            if not callback then return end
+            TrollCommands:Toggle()
+
+            local target = Target.Value ~= '' and Target.Value or aimedTarget()
+            if not target then
+                notif('Troll Commands', 'No target -- type a Roblox username, or aim at someone first.', 6, 'warning')
+                return
+            end
+            trolllib.send(target, Action.Value, {
+                Seconds = Duration.Value,
+                Message = Message.Value,
+            }, function(ok, message)
+                notif('Troll Commands', message, 6, ok and 'success' or 'alert')
+            end)
+        end,
+        Tooltip = 'Sends a joke effect to a lower-ranked player\'s Vain client (Privileged and above). Toggle or bind it to send one; the rank check happens on the server, not here.'
+    })
+    Action = TrollCommands:CreateDropdown({
+        Name = 'Action',
+        List = trolllib.ActionNames,
+        Function = function(value)
+            local action = trolllib.getAction(value)
+            -- Only show the inputs the chosen action actually reads.
+            if Duration then Duration.Object.Visible = action and action.Timed or false end
+            if Message then Message.Object.Visible = action and action.Message or false end
+        end,
+        Tooltip = 'What to do to them. Fling/Spin/Freeze/Shake/Invert/Blind are timed effects, Notify pops a message, Kick disconnects them.'
+    })
+    Target = TrollCommands:CreateTextBox({
+        Name = 'Target',
+        Placeholder = 'Roblox username (blank = aimed at)',
+        Tooltip = 'Who to troll. Leave it empty to use whoever you are currently aiming at.'
+    })
+    Duration = TrollCommands:CreateSlider({
+        Name = 'Duration',
+        Min = 1,
+        Max = 15,
+        Default = 5,
+        Suffix = 's',
+        -- Hidden to match the default action (Fling, untimed) -- the dropdown's
+        -- Function is what reveals it, and that only fires on an actual change.
+        Visible = false,
+        Tooltip = 'How long timed effects last. The server clamps this to 15s regardless of what is sent.'
+    })
+    Message = TrollCommands:CreateTextBox({
+        Name = 'Message',
+        Placeholder = 'Text for Notify / Kick',
+        Visible = false,
+        Tooltip = 'Shown to them by Notify, or used as the Kick reason.'
+    })
+    Token = TrollCommands:CreateTextBox({
+        Name = 'Token',
+        Placeholder = 'Paste /whitelist token output, press Enter',
+        Tooltip = 'Your in-game token from Discord (/whitelist token). Saved to vain/profiles/ranktoken.txt and wiped from this box straight away, so it never travels inside an exported profile.',
+        Function = function(enter)
+            -- SetValue fires on every keystroke; only act on a deliberate Enter,
+            -- and ignore the blanking write we do ourselves right after.
+            if not enter or Token.Clearing or Token.Value == '' then return end
+            local ok, err = trolllib.setToken(Token.Value)
+            Token.Clearing = true
+            Token:SetValue('')
+            Token.Clearing = false
+            tokenNotif(ok, ok and 'Token saved.' or err)
+        end
+    })
+    TrollCommands:CreateButton({
+        Name = 'Paste Token From Clipboard',
+        Tooltip = 'Reads your clipboard instead of typing the token out. Needs an executor with getclipboard.',
+        Function = function()
+            if not getclipboard then
+                return tokenNotif(false, 'Your executor has no getclipboard -- paste into the Token box above instead.')
+            end
+            local ok, clip = pcall(getclipboard)
+            if not ok or type(clip) ~= 'string' then
+                return tokenNotif(false, 'Could not read your clipboard.')
+            end
+            local saved, err = trolllib.setToken(clip)
+            tokenNotif(saved, saved and 'Token saved.' or err)
+        end
+    })
+    TrollCommands:CreateButton({
+        Name = 'Clear Token',
+        Tooltip = 'Deletes the saved token from this machine.',
+        Function = function()
+            trolllib.setToken('')
+            tokenNotif(true, 'Token cleared.')
+        end
     })
 end)
 
