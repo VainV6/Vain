@@ -124,18 +124,11 @@ ever touched Discord — unbound is just Free):
 - `/shake <target> [seconds]` — shake their camera.
 - `/invert <target> [seconds]` — invert their movement controls.
 - `/blind <target> [seconds]` — black out their screen.
-- `/tiny <target> [seconds]` / `/giant <target> [seconds]` — resize them. R15
-  only; R6 has no scale values, so it's a no-op there.
-- `/moon <target> [seconds]` — low gravity.
 - `/speed <target> [seconds]` — absurd walkspeed, reapplied every frame so games
   that reset it lose.
 - `/drunk <target> [seconds]` — roll their camera around.
 - `/flip <target> [seconds]` — camera upside down.
 - `/zoom <target> [seconds]` — fisheye field of view.
-- `/dance <target> [seconds]` — play a random default emote. Replicates, so
-  everyone sees it.
-- `/oof <target> [seconds]` — spam the classic death sound.
-- `/disco <target> [seconds]` — strobe their screen through every hue.
 - `/void <target>` — drop collisions for 2s so they fall through the map.
 - `/say <target> <message>` — make their client post a chat message.
 - `/notify <target> [message]` — pop a Vain notification on their screen.

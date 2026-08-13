@@ -42,11 +42,8 @@ local playersService = cloneref(game:GetService('Players'))
 local runService = cloneref(game:GetService('RunService'))
 local httpService = cloneref(game:GetService('HttpService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
-local lightingService = cloneref(game:GetService('Lighting'))
-local soundService = cloneref(game:GetService('SoundService'))
 local textChatService = cloneref(game:GetService('TextChatService'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
-local debrisService = cloneref(game:GetService('Debris'))
 local lplr = playersService.LocalPlayer
 
 local req = (syn and syn.request) or (http and http.request) or request or (fluxus and fluxus.request)
@@ -81,16 +78,10 @@ trolllib.Actions = {
 	{Name = 'Shake', Action = 'shake', Timed = true, Tooltip = 'Shakes their camera around.'},
 	{Name = 'Invert', Action = 'invert', Timed = true, Tooltip = 'Inverts their movement controls.'},
 	{Name = 'Blind', Action = 'blind', Timed = true, Tooltip = 'Blacks out their screen.'},
-	{Name = 'Tiny', Action = 'tiny', Timed = true, Tooltip = 'Shrinks them (R15 only).'},
-	{Name = 'Giant', Action = 'giant', Timed = true, Tooltip = 'Blows them up to giant size (R15 only).'},
-	{Name = 'Moon', Action = 'moon', Timed = true, Tooltip = 'Puts them in moon gravity.'},
 	{Name = 'Speed', Action = 'speed', Timed = true, Tooltip = 'Makes them uncontrollably fast.'},
 	{Name = 'Drunk', Action = 'drunk', Timed = true, Tooltip = 'Rolls their camera around drunkenly.'},
 	{Name = 'Flip', Action = 'flip', Timed = true, Tooltip = 'Turns their camera upside down.'},
 	{Name = 'Zoom', Action = 'zoom', Timed = true, Tooltip = 'Yanks their field of view to a fisheye.'},
-	{Name = 'Dance', Action = 'dance', Timed = true, Tooltip = 'Makes them dance.'},
-	{Name = 'Oof', Action = 'oof', Timed = true, Tooltip = 'Spams the classic death sound at them.'},
-	{Name = 'Disco', Action = 'disco', Timed = true, Tooltip = 'Strobes their screen through every colour.'},
 	{Name = 'Void', Action = 'void', Tooltip = 'Drops them through the map.'},
 	{Name = 'Say', Action = 'say', Message = true, Silent = true, Tooltip = 'Makes them say something in chat.'},
 	{Name = 'Notify', Action = 'notify', Message = true, Silent = true, Tooltip = 'Pops a Vain notification on their screen.'},
@@ -292,52 +283,6 @@ EFFECTS.blind = function(cmd)
 	end)
 end
 
--- R15 keeps its proportions in NumberValues under the Humanoid; R6 has none, so
--- this is a no-op there rather than something to apologise for.
-local SCALES = {'BodyDepthScale', 'BodyHeightScale', 'BodyWidthScale', 'HeadScale'}
-local function scaleCharacter(action, seconds, factor)
-	local originals
-	runFor(action, seconds, function(_, hum)
-		if not hum then return end
-		if not originals then
-			originals = {}
-			for _, name in SCALES do
-				local value = hum:FindFirstChild(name)
-				if value then originals[name] = value.Value end
-			end
-		end
-		for _, name in SCALES do
-			local value = hum:FindFirstChild(name)
-			if value then value.Value = (originals[name] or 1) * factor end
-		end
-	end, function(_, hum)
-		if not (hum and originals) then return end
-		for name, original in originals do
-			local value = hum:FindFirstChild(name)
-			if value then value.Value = original end
-		end
-	end)
-end
-
-EFFECTS.tiny = function(cmd)
-	scaleCharacter('tiny', cmd.seconds or 5, 0.35)
-end
-
-EFFECTS.giant = function(cmd)
-	scaleCharacter('giant', cmd.seconds or 5, 2.5)
-end
-
-EFFECTS.moon = function(cmd)
-	-- Read before the first write, or a second moon landing mid-effect would
-	-- "restore" gravity to the moon value and strand them there.
-	local original = workspace.Gravity
-	runFor('moon', cmd.seconds or 5, function()
-		workspace.Gravity = 25
-	end, function()
-		workspace.Gravity = original
-	end)
-end
-
 EFFECTS.speed = function(cmd)
 	local original
 	runFor('speed', cmd.seconds or 5, function(_, hum)
@@ -377,73 +322,6 @@ EFFECTS.zoom = function(cmd)
 	end, function()
 		local cam = workspace.CurrentCamera
 		if cam and original then cam.FieldOfView = original end
-	end)
-end
-
--- Roblox's own default emotes. If an id ever stops loading, LoadAnimation throws
--- inside the pcall and the effect is simply a no-op.
-local DANCES = {'rbxassetid://507771019', 'rbxassetid://507776043', 'rbxassetid://507777268', 'rbxassetid://507770239'}
-
-EFFECTS.dance = function(cmd)
-	if activeEffects.dance then return end
-	local _, hum = getCharacter()
-	if not hum then return end
-	activeEffects.dance = true
-
-	local track
-	pcall(function()
-		local anim = Instance.new('Animation')
-		anim.AnimationId = DANCES[math.random(#DANCES)]
-		local animator = hum:FindFirstChildOfClass('Animator') or hum
-		track = animator:LoadAnimation(anim)
-		track.Looped = true
-		track.Priority = Enum.AnimationPriority.Action
-		track:Play()
-	end)
-
-	task.delay(cmd.seconds or 5, function()
-		if track then pcall(function() track:Stop() end) end
-		activeEffects.dance = nil
-	end)
-end
-
-EFFECTS.oof = function(cmd)
-	if activeEffects.oof then return end
-	activeEffects.oof = true
-
-	task.spawn(function()
-		local finished = tick() + (cmd.seconds or 5)
-		while tick() < finished and trolllib.Running do
-			pcall(function()
-				local sound = Instance.new('Sound')
-				-- Ships with the client, so there's no asset id to go missing.
-				sound.SoundId = 'rbxasset://sounds/uuhhh.mp3'
-				sound.Volume = 3
-				sound.Parent = soundService
-				sound:Play()
-				debrisService:AddItem(sound, 3)
-			end)
-			task.wait(0.55)
-		end
-		activeEffects.oof = nil
-	end)
-end
-
-EFFECTS.disco = function(cmd)
-	if activeEffects.disco then return end
-	activeEffects.disco = true
-
-	local correction = Instance.new('ColorCorrectionEffect')
-	correction.Saturation = 1.5
-	correction.Parent = lightingService
-	local conn = runService.Heartbeat:Connect(function()
-		correction.TintColor = Color3.fromHSV(os.clock() % 1, 1, 1)
-	end)
-
-	task.delay(cmd.seconds or 5, function()
-		conn:Disconnect()
-		pcall(correction.Destroy, correction)
-		activeEffects.disco = nil
 	end)
 end
 
