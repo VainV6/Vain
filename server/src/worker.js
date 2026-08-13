@@ -30,7 +30,7 @@
  *                                  a nuisance, not a compromise.
  */
 
-import { handleDiscordInteraction, resolveRank, authorizeTroll, discordUserIdFromToken } from "./discord.js";
+import { handleDiscordInteraction, resolveRank, authorizeTroll, detectInjected, discordUserIdFromToken } from "./discord.js";
 import { HOLD_MAX, touchPresence, waitForCommands } from "./troll.js";
 
 function json(obj, status = 200) {
@@ -67,6 +67,30 @@ async function handleTrollPost(req, env, ctx) {
 	return json({ ok: true, target: result.targetName });
 }
 
+// Capped because every id costs a KV read (two for a bound player) -- a server
+// full of players is around 40, and nobody needs to ask about more than that.
+const MAX_DETECT_IDS = 40;
+
+async function handleDetect(req, env, ctx) {
+	const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+	const invokerDiscordId = await discordUserIdFromToken(env, token);
+	if (!invokerDiscordId) {
+		return json({ error: "Invalid or expired token -- run /whitelist token in Discord for a fresh one." }, 401);
+	}
+
+	let body;
+	try {
+		body = await req.json();
+	} catch {
+		return json({ error: "Malformed body." }, 400);
+	}
+
+	const ids = Array.isArray(body && body.ids) ? body.ids.filter((id) => /^\d+$/.test(String(id))).slice(0, MAX_DETECT_IDS) : [];
+	const result = await detectInjected(env, invokerDiscordId, ids, ctx);
+	if (result.error) return json(result, 403);
+	return json(result);
+}
+
 export default {
 	async fetch(req, env, ctx) {
 		const url = new URL(req.url);
@@ -77,6 +101,10 @@ export default {
 
 		if (url.pathname === "/troll" && req.method === "POST") {
 			return handleTrollPost(req, env, ctx);
+		}
+
+		if (url.pathname === "/injected" && req.method === "POST") {
+			return handleDetect(req, env, ctx);
 		}
 
 		const rankMatch = url.pathname.match(/^\/rank\/(\d+)$/);

@@ -76,15 +76,12 @@ local function waitForChildOfType(obj, name, timeout, prop)
 	return returned
 end
 
--- ── rank immunity ────────────────────────────────────────────────────────────
--- A Discord role is a player's rank (Free/unbound = 0). A lower rank's
--- targeting modules (Killaura, ESP, aimbots, ...) must never see a higher-rank
--- player as a valid target -- enforced once here in targetCheck so every
--- module funnelling through EntityMouse/EntityPosition/AllPosition's shared
--- `.Targetable` gate gets it for free. This is a courtesy protection for
--- ranked players, not a security boundary, so it fails OPEN (treated as Free)
--- on any cache-miss/pending-lookup/network error -- a Worker hiccup must never
--- block normal targeting for everyone.
+-- ── local rank ───────────────────────────────────────────────────────────────
+-- A Discord role is a player's rank (Free/unbound = 0). Rank used to grant
+-- immunity from other people's targeting modules; it no longer does -- everyone
+-- is targetable. What survives here is the LOCAL player's own level, which
+-- other features read (the Vain Detector only reports players ranked below
+-- you). Resolution fails OPEN to Free on any error.
 local RANK_API = 'https://vain.baconcrafft.workers.dev'
 local RANK_LEVEL = {owner = 2, priviliged = 1}
 -- Display names by level, for anything that reports the local tier back to the
@@ -168,16 +165,9 @@ task.spawn(function()
 end)
 
 entitylib.targetCheck = function(ent)
-	if ent.Player and not ent.NPC then
-		local theirLevel = resolveRankLevel(ent.Player.UserId, function(level)
-			if level == 0 then return end
-			local entity = entitylib.getEntity(ent.Character)
-			if entity and entity.Targetable ~= entitylib.targetCheck(entity) then
-				entitylib.refreshEntity(entity.Character, entity.Player)
-			end
-		end)
-		if theirLevel > entitylib.localRankLevel then return false end
-	end
+	-- Rank no longer affects targeting: everyone is a valid target regardless of
+	-- who outranks whom. This also stops the per-opponent GET /rank/<id> lookups
+	-- that used to fire for every player you might target.
 	if ent.TeamCheck then
 		return ent:TeamCheck()
 	end

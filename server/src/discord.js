@@ -233,6 +233,44 @@ async function resolveTrollTarget(env, target) {
 }
 
 /**
+ * Which of `robloxUserIds` are injected right now AND ranked strictly below the
+ * caller. Powers the in-game Vain Detector module.
+ *
+ * The rank floor is why this needs a token at all: without knowing who is
+ * asking there's no "below you" to filter by. A Free caller therefore sees
+ * nobody, which is correct rather than a special case -- nobody is below Free.
+ */
+export async function detectInjected(env, invokerDiscordId, robloxUserIds, ctx) {
+	const invokerRank = await resolveRank(env, invokerDiscordId, ctx);
+	const problem = rankProblem(invokerRank);
+	if (problem) return { error: problem };
+
+	const invokerLevel = levelOf(invokerRank.tier);
+	if (invokerLevel < 1) return { injected: [] };
+
+	const found = [];
+	for (const robloxUserId of robloxUserIds) {
+		const presence = await env.KEYS.getWithMetadata(`online:${robloxUserId}`);
+		if (!presence || !presence.metadata) continue;
+
+		// Unbound players are Free (level 0), so they need no lookup at all --
+		// which also keeps this cheap in the common case.
+		let level = 0;
+		const revRaw = await env.KEYS.get(`roblox:${robloxUserId}`);
+		if (revRaw) {
+			try {
+				const { discordUserId } = JSON.parse(revRaw);
+				level = levelOf((await resolveRank(env, discordUserId, ctx)).tier);
+			} catch { /* treat as Free */ }
+		}
+		if (level < invokerLevel) {
+			found.push({ robloxUserId: String(robloxUserId), name: presence.metadata.name || "" });
+		}
+	}
+	return { injected: found };
+}
+
+/**
  * The single gate both troll paths (Discord `/troll` and in-game POST /troll)
  * go through: invoker must be Privileged or above AND strictly outrank the
  * target. Returns { error } or { targetName }.

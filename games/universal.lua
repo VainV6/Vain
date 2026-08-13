@@ -8185,6 +8185,74 @@ run(function()
     vain:Clean(function()
         trolllib.stop()
     end)
+
+    local VainDetector
+    local Interval
+    local seen = {}
+
+    local function scan()
+        local ids = {}
+        for _, plr in playersService:GetPlayers() do
+            if plr ~= lplr then
+                table.insert(ids, plr.UserId)
+            end
+        end
+        if #ids == 0 then return end
+
+        trolllib.detect(ids, function(list, err)
+            if not list then
+                -- Only worth saying once: a missing token or a down Worker will
+                -- fail identically on every scan, and a notification per scan
+                -- would be worse than the problem.
+                if not seen.__warned then
+                    seen.__warned = true
+                    notif('Vain Detector', err, 8, 'warning')
+                end
+                return
+            end
+            seen.__warned = nil
+
+            for _, entry in list do
+                local id = tostring(entry.robloxUserId)
+                if not seen[id] then
+                    seen[id] = true
+                    local plr = playersService:GetPlayerByUserId(tonumber(id))
+                    notif('Vain Detector', (plr and plr.Name or entry.name or id)..' is running Vain.', 8, 'gold')
+                end
+            end
+        end)
+    end
+
+    VainDetector = vain.Categories.Utility:CreateModule({
+        Name = 'Vain Detector',
+        Function = function(callback)
+            table.clear(seen)
+            if callback then
+                task.spawn(function()
+                    -- Scan immediately, then on the interval, so enabling it tells
+                    -- you about the people already here rather than only about
+                    -- whoever injects next.
+                    while VainDetector.Enabled do
+                        scan()
+                        local waited = 0
+                        repeat
+                            task.wait(1)
+                            waited = waited + 1
+                        until waited >= Interval.Value or not VainDetector.Enabled
+                    end
+                end)
+            end
+        end,
+        Tooltip = 'Notifies you which players in your server are running Vain. Only reports people ranked BELOW you, and needs your token pasted in Settings -> General.'
+    })
+    Interval = VainDetector:CreateSlider({
+        Name = 'Scan Interval',
+        Min = 30,
+        Max = 300,
+        Default = 120,
+        Suffix = 's',
+        Tooltip = 'Seconds between scans. Each scan costs a lookup per player in the server, so shorter intervals burn through the server\'s daily budget faster.'
+    })
 end)
 
 run(function()

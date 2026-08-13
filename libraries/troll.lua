@@ -544,6 +544,45 @@ end
 
 -- ── sending ──────────────────────────────────────────────────────────────────
 
+-- Asks which of `ids` (Roblox user ids) are injected right now and ranked below
+-- you. Calls back with (list, err) where list is {{robloxUserId, name}, ...}.
+-- The rank floor is enforced server-side off the token, so a client can't ask
+-- about people above it however the Lua is edited.
+function trolllib.detect(ids, callback)
+	callback = callback or function() end
+
+	local token = trolllib.getToken()
+	if token == '' then
+		return callback(nil, 'No token set -- run /whitelist token in Discord and paste it in Settings.')
+	end
+	if not req then
+		return callback(nil, 'Your executor has no request function.')
+	end
+
+	task.spawn(function()
+		local ok, res = pcall(req, {
+			Url = trolllib.API..'/injected',
+			Method = 'POST',
+			Headers = {
+				['Content-Type'] = 'application/json',
+				['authorization'] = 'Bearer '..token,
+			},
+			Body = httpService:JSONEncode({ids = ids}),
+		})
+		if not (ok and res and res.Body) then
+			return callback(nil, 'Could not reach the Vain server.')
+		end
+
+		local decOk, decoded = pcall(httpService.JSONDecode, httpService, res.Body)
+		if not decOk or type(decoded) ~= 'table' then
+			return callback(nil, 'The Vain server sent back something unreadable.')
+		end
+		if decoded.error then return callback(nil, decoded.error) end
+
+		callback(type(decoded.injected) == 'table' and decoded.injected or {})
+	end)
+end
+
 -- Fires POST /troll and calls back with (ok, message). Async: an HTTP round
 -- trip on the main thread would hitch the game every time someone hits Send.
 function trolllib.send(target, actionName, options, callback)
