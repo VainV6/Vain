@@ -92,6 +92,7 @@ export async function resolveRank(env, discordUserId, ctx) {
 	}
 
 	let tier = null;
+	let error = null;
 	const res = await discordFetch(env, `/guilds/${env.DISCORD_GUILD_ID}/members/${discordUserId}`);
 	if (res.ok) {
 		const member = await res.json();
@@ -99,12 +100,43 @@ export async function resolveRank(env, discordUserId, ctx) {
 		tier = (env.RANK_ORDER || []).find((t) =>
 			Object.entries(env.RANK_ROLES || {}).some(([roleId, roleTier]) => roleTier === t && roles.has(roleId))
 		) || null;
+	} else if (res.status !== 404) {
+		// 404 is a real answer (not in the guild => Free). Anything else means we
+		// never learned the roles at all, and reporting THAT as Free is how a
+		// missing Server Members Intent turns into "you're not Privileged" with
+		// no hint about the actual cause -- so carry the status out instead.
+		error = res.status;
 	}
 
 	const rec = { tier, checkedAt: Date.now() };
+	if (error) {
+		// Deliberately not cached: a failed lookup cached for 60s keeps serving
+		// "Free" for a minute after you fix the cause, which makes the fix look
+		// like it didn't work.
+		rec.error = error;
+		return rec;
+	}
 	const put = env.KEYS.put(`rankcache:${discordUserId}`, JSON.stringify(rec), { expirationTtl: RANK_CACHE_TTL });
 	if (ctx) ctx.waitUntil(put); else await put;
 	return rec;
+}
+
+/**
+ * Turns a failed rank lookup into something the invoker can act on, instead of
+ * letting it masquerade as "you're Free". Returns null when the rank is real.
+ */
+function rankProblem(rank) {
+	if (!rank.error) return null;
+	if (rank.error === 403) {
+		return "I couldn't read your roles: Discord returned 403. Turn on **Server Members Intent** " +
+			"(Developer Portal -> your app -> Bot -> Privileged Gateway Intents) -- the member lookup that " +
+			"ranks depend on requires it.";
+	}
+	if (rank.error === 401) {
+		return "I couldn't read your roles: Discord returned 401, so DISCORD_BOT_TOKEN is wrong or revoked " +
+			"(`wrangler secret put DISCORD_BOT_TOKEN`).";
+	}
+	return `I couldn't read your roles: Discord returned ${rank.error}. Check DISCORD_GUILD_ID and that the bot is still in the server.`;
 }
 
 // ---- Roblox username -> id resolution -----------------------------------------
@@ -204,8 +236,10 @@ export async function authorizeTroll(env, invokerDiscordId, { target, action, se
 	if (invokerRec && invokerRec.banned) return { error: "You're banned from using Vain's whitelist commands." };
 
 	const invokerRank = await resolveRank(env, invokerDiscordId, ctx);
+	const problem = rankProblem(invokerRank);
+	if (problem) return { error: problem };
 	if (levelOf(invokerRank.tier) < RANK_LEVEL.priviliged) {
-		return { error: "Troll commands are Privileged and above only." };
+		return { error: "Troll commands are Privileged and above only -- your roles read as Free." };
 	}
 
 	const found = await resolveTrollTarget(env, target);
@@ -305,10 +339,12 @@ async function cmdWhitelistView(interaction, env, ctx) {
 		const rec = await getRecord(env, invokerId);
 		if (!rec) return sendFollowup(env, interaction, "You haven't linked an account yet -- run `/whitelist edit`.");
 		const rank = await resolveRank(env, invokerId, ctx);
+		const problem = rankProblem(rank);
 		await sendFollowup(
 			env,
 			interaction,
-			`Roblox: **${rec.robloxUsername}**\nCurrent rank: ${rank.tier || "Free"}` +
+			`Roblox: **${rec.robloxUsername}**\nCurrent rank: ${problem ? "unknown" : rank.tier || "Free"}` +
+			(problem ? `\n⚠️ ${problem}` : "") +
 			(rec.banned ? "\n⚠️ Banned" : "")
 		);
 	})());
@@ -335,8 +371,16 @@ async function cmdWhitelistToken(interaction, env, ctx) {
 
 	ctx.waitUntil((async () => {
 		const rank = await resolveRank(env, invokerId, ctx);
+		const problem = rankProblem(rank);
+		if (problem) return sendFollowup(env, interaction, `⚠️ ${problem}`);
 		if (levelOf(rank.tier) < RANK_LEVEL.priviliged) {
-			return sendFollowup(env, interaction, "❌ Tokens are only useful to Privileged and above -- they authenticate in-game troll commands.");
+			return sendFollowup(
+				env,
+				interaction,
+				"❌ Tokens are only useful to Privileged and above -- they authenticate in-game troll commands. " +
+				"Your roles read as **Free**: check that you actually hold one of the role IDs listed under " +
+				"`[vars.RANK_ROLES]` in wrangler.toml (being the server owner isn't the same as having the owner role)."
+			);
 		}
 		const token = await issueToken(env, invokerId);
 		await sendFollowup(

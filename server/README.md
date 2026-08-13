@@ -66,14 +66,17 @@ Cloudflare Worker  ──(rank check, then cmdq:<targetRobloxId>)──► effec
 5. **General Information** tab → copy **Application ID** and **Public Key**
    into `wrangler.toml`'s `[vars]` block (`DISCORD_APPLICATION_ID`,
    `DISCORD_PUBLIC_KEY`).
-6. **OAuth2 → URL Generator** → scopes `bot` + `applications.commands` (no
-   elevated bot permissions needed — rank checks are plain REST calls with
-   the bot token, not gateway intents). Use the generated URL to invite the
-   bot to your server.
-7. With Developer Mode on in Discord, copy your server's ID
+6. **Bot** tab → **Privileged Gateway Intents** → turn on **Server Members
+   Intent**. Rank checks are plain REST calls (no gateway connection), but
+   `GET /guilds/{id}/members/{user}` is gated behind that intent — without it
+   Discord answers 403 and *everyone* resolves as Free. No elevated bot
+   *permissions* are needed beyond that.
+7. **OAuth2 → URL Generator** → scopes `bot` + `applications.commands`. Use
+   the generated URL to invite the bot to your server.
+8. With Developer Mode on in Discord, copy your server's ID
    (`DISCORD_GUILD_ID`) and each rank role's ID into `[vars.RANK_ROLES]`
    (listing the tier names in priority order in `RANK_ORDER`).
-8. **Deploy first, wire the endpoint second** — the Interactions Endpoint URL
+9. **Deploy first, wire the endpoint second** — the Interactions Endpoint URL
    can't be saved until the Worker is live to answer Discord's signature
    handshake:
    ```sh
@@ -83,12 +86,12 @@ Cloudflare Worker  ──(rank check, then cmdq:<targetRobloxId>)──► effec
    Endpoint URL**, set `https://<worker>.workers.dev/discord/interactions` and
    save. Discord fires a signed PING at save time and won't save until it gets
    a valid signed PONG back.
-9. Register the commands (guild-scoped, so they show up in seconds):
-   ```sh
-   export DISCORD_APPLICATION_ID=... DISCORD_GUILD_ID=... DISCORD_BOT_TOKEN=...
-   npm run register-commands
-   ```
-10. Point `RANK_API` in `libraries/entity.lua` at your deployed Worker URL if
+10. Register the commands (guild-scoped, so they show up in seconds):
+    ```sh
+    export DISCORD_APPLICATION_ID=... DISCORD_GUILD_ID=... DISCORD_BOT_TOKEN=...
+    npm run register-commands
+    ```
+11. Point `RANK_API` in `libraries/entity.lua` at your deployed Worker URL if
     it ever changes (currently hardcoded to `https://vain.baconcrafft.workers.dev`).
 
 ## Commands
