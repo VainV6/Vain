@@ -5845,6 +5845,19 @@ end
 function mainapi:ApplyPreset(preset)
 	if type(preset) ~= 'table' or not preset.Name or not preset.Data then return false end
 	local name = tostring(preset.Name)
+
+	local exists = false
+	for _, pr in self.Profiles do if pr.Name == name then exists = true break end end
+	if not exists then table.insert(self.Profiles, { Name = name, Bind = {} }) end
+
+	-- Save BEFORE writing the preset, never after. Save() persists the current
+	-- in-memory settings to self.Profile's own file (only the GUI file learns the
+	-- new name), so writing the preset first meant that save landed straight on
+	-- top of it whenever the preset shared the active profile's name -- which is
+	-- exactly what export-then-import on one machine produces. The import then
+	-- "succeeded" while Load read back the settings you already had.
+	self:Save(name)
+
 	local okw = pcall(function()
 		writefile('vain/profiles/'..name..self.Place..'.txt', preset.Data)
 	end)
@@ -5852,10 +5865,6 @@ function mainapi:ApplyPreset(preset)
 		if self.CreateNotification then self:CreateNotification('Presets', 'Could not write preset file', 4, 'alert') end
 		return false
 	end
-	local exists = false
-	for _, pr in self.Profiles do if pr.Name == name then exists = true break end end
-	if not exists then table.insert(self.Profiles, { Name = name, Bind = {} }) end
-	self:Save(name)
 	self:Load(true)
 	if self.CreateNotification then self:CreateNotification('Presets', 'Applied preset "'..name..'"', 4) end
 	return true
@@ -6227,18 +6236,27 @@ do
 		importStroke.Color = color.Light(uipallet.Main, 0.14)
 		importStroke.Parent = importBtn
 		importBtn.MouseButton1Click:Connect(function()
-			local ok = pcall(function()
-				if not getclipboard then error('executor has no getclipboard') end
-				local decoded = httpService:JSONDecode(getclipboard())
-				if type(decoded) ~= 'table' or not decoded.Name or not decoded.Data then
-					error('clipboard does not contain a valid profile')
+			-- Say WHICH of the four ways this failed. They need completely
+			-- different fixes (missing executor function, empty clipboard, wrong
+			-- text copied, unwritable file) and one generic "could not import"
+			-- left you guessing at all of them.
+			local ok, err = pcall(function()
+				local read = getclipboard or getclipboardtext or (Clipboard and Clipboard.get)
+				if not read then error('your executor has no getclipboard, so Vain cannot read your clipboard') end
+				local raw = read()
+				if type(raw) ~= 'string' or raw == '' then error('your clipboard is empty') end
+				local decodeOk, decoded = pcall(function() return httpService:JSONDecode(raw) end)
+				if not decodeOk or type(decoded) ~= 'table' or not decoded.Name or not decoded.Data then
+					error('that is not a profile string -- copy one with Export first')
 				end
 				if not mainapi:ApplyPreset(decoded) then
-					error('failed to apply profile')
+					error('could not write the profile file')
 				end
 			end)
 			if not ok and mainapi.CreateNotification then
-				mainapi:CreateNotification('Profiles', 'Could not import profile from clipboard', 5, 'alert')
+				-- pcall prefixes the script/line; keep just the message.
+				err = tostring(err):match('[^:]+$') or tostring(err)
+				mainapi:CreateNotification('Profiles', 'Import failed:'..err, 7, 'alert')
 			end
 		end)
 		importBtn.MouseEnter:Connect(function() tween:Tween(importBtn, uipallet.Tween, { TextColor3 = uipallet.Text }) end)
