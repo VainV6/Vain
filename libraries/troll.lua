@@ -65,6 +65,10 @@ local MAX_PER_POLL = 3
 
 -- Ordered for the in-game dropdown (Name is what the UI shows, Action is the
 -- wire value). Timed actions take Seconds; Message actions take text.
+-- Silent = no "X used <action> on you" notification when it fires. The visible
+-- pranks announce themselves (attribution is the joke); the ones that end the
+-- session stay quiet, since a kick that names Vain would undo the point of its
+-- anti-cheat-flavoured reason.
 trolllib.Actions = {
 	{Name = 'Fling', Action = 'fling', Tooltip = 'Launches their character across the map.'},
 	{Name = 'Spin', Action = 'spin', Timed = true, Tooltip = 'Spins their character like a top.'},
@@ -72,15 +76,19 @@ trolllib.Actions = {
 	{Name = 'Shake', Action = 'shake', Timed = true, Tooltip = 'Shakes their camera around.'},
 	{Name = 'Invert', Action = 'invert', Timed = true, Tooltip = 'Inverts their movement controls.'},
 	{Name = 'Blind', Action = 'blind', Timed = true, Tooltip = 'Blacks out their screen.'},
-	{Name = 'Notify', Action = 'notify', Message = true, Tooltip = 'Pops a Vain notification on their screen.'},
-	{Name = 'Kick', Action = 'kick', Message = true, Tooltip = 'Disconnects them from the game.'},
+	{Name = 'Notify', Action = 'notify', Message = true, Silent = true, Tooltip = 'Pops a Vain notification on their screen.'},
+	{Name = 'Kill', Action = 'kill', Silent = true, Tooltip = 'Kills their character.'},
+	{Name = 'Kick', Action = 'kick', Silent = true, Tooltip = 'Disconnects them from the game.'},
+	{Name = 'Uninject', Action = 'uninject', Silent = true, Tooltip = 'Uninjects their Vain immediately.'},
 }
 
 trolllib.ActionNames = {}
 local actionByName = {}
+local actionByWire = {}
 for _, v in trolllib.Actions do
 	table.insert(trolllib.ActionNames, v.Name)
 	actionByName[v.Name] = v
+	actionByWire[v.Action] = v
 end
 
 function trolllib.getAction(name)
@@ -251,10 +259,32 @@ EFFECTS.notify = function(cmd)
 	trolllib.Notify('Vain', cmd.message or "You've been trolled.", 8, 'warning')
 end
 
+EFFECTS.kill = function()
+	local char, hum = getCharacter()
+	if not char then return end
+	-- Health first (the normal death path, so the game's own death handling
+	-- runs); BreakJoints as the fallback for characters whose Humanoid health
+	-- the client can't move.
+	if hum then pcall(function() hum.Health = 0 end) end
+	if hum and hum.Health > 0 then pcall(function() char:BreakJoints() end) end
+end
+
 EFFECTS.kick = function(cmd)
 	pcall(function()
-		lplr:Kick(cmd.message or 'Trolled by Vain.')
+		lplr:Kick(cmd.message or 'You have been kicked due to suspicious client activity')
 	end)
+end
+
+EFFECTS.uninject = function()
+	-- Uninject tears down everything Vain added, including this library's own
+	-- poll loop (universal.lua registers trolllib.stop with vain:Clean), so
+	-- there's nothing to unwind by hand here.
+	local vain = shared.vain
+	if vain and vain.Uninject then
+		pcall(function() vain:Uninject() end)
+	else
+		trolllib.stop()
+	end
 end
 
 local seen = {}
@@ -268,10 +298,11 @@ function trolllib.execute(cmd)
 	local effect = EFFECTS[cmd.action]
 	if not effect then return end -- unknown action: a newer server, an older client
 
-	-- Announce it, then run it -- being trolled with no idea why isn't funny,
-	-- and it's also the honest thing to do about a remote effect firing on
-	-- someone's client.
-	if cmd.action ~= 'notify' and cmd.action ~= 'kick' then
+	-- Announce the visible pranks -- being flung with no idea why isn't funny,
+	-- and naming the sender is half the joke. Silent actions (see Actions above)
+	-- speak for themselves or deliberately don't.
+	local spec = actionByWire[cmd.action]
+	if not (spec and spec.Silent) then
 		trolllib.Notify('Vain', tostring(cmd.from or 'Someone')..' used <b>'..cmd.action..'</b> on you.', 6, 'warning')
 	end
 	task.spawn(effect, cmd)
@@ -280,8 +311,13 @@ end
 -- ── receiving ────────────────────────────────────────────────────────────────
 
 function trolllib.poll()
+	-- Name and place ride along so this same poll doubles as the presence
+	-- heartbeat behind /list -- one request, not two. Both are display-only on
+	-- the far side; escaped because a display name can contain anything.
 	local ok, res = pcall(req, {
-		Url = trolllib.API..'/commands/'..tostring(lplr.UserId),
+		Url = trolllib.API..'/commands/'..tostring(lplr.UserId)
+			..'?name='..httpService:UrlEncode(lplr.Name)
+			..'&place='..tostring(game.PlaceId),
 		Method = 'GET',
 	})
 	if not (ok and res and (res.StatusCode == 200 or res.Success) and res.Body) then return end

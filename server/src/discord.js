@@ -28,7 +28,7 @@
  */
 
 import { verifyKey } from "discord-interactions";
-import { ACTION_NAMES, enqueueCommand, normalizeCommand } from "./troll.js";
+import { ACTION_NAMES, enqueueCommand, listPresence, normalizeCommand } from "./troll.js";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -68,7 +68,13 @@ async function sendFollowup(env, interaction, content) {
 	await discordFetch(
 		env,
 		`/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`,
-		{ method: "PATCH", body: JSON.stringify({ content, flags: 64 }) }
+		{
+			method: "PATCH",
+			// allowed_mentions empty: replies quote back user-supplied text (Roblox
+			// names in /list, mentions in lookups) and none of it should be able to
+			// ping anyone. The <@id> in lookups still renders as a name either way.
+			body: JSON.stringify({ content, flags: 64, allowed_mentions: { parse: [] } }),
+		}
 	);
 }
 
@@ -427,6 +433,44 @@ async function cmdTrollAction(interaction, env, ctx) {
 	return json({ type: 5, data: { flags: 64 } });
 }
 
+// Discord's 2000-char message cap, minus room for the "+N more" line.
+const LIST_LIMIT = 40;
+
+async function cmdList(interaction, env, ctx) {
+	const invokerId = interaction.member.user.id;
+
+	ctx.waitUntil((async () => {
+		const rank = await resolveRank(env, invokerId, ctx);
+		const problem = rankProblem(rank);
+		if (problem) return sendFollowup(env, interaction, `⚠️ ${problem}`);
+		if (levelOf(rank.tier) < RANK_LEVEL.priviliged) {
+			return sendFollowup(env, interaction, "❌ Privileged and above only.");
+		}
+
+		const online = await listPresence(env);
+		if (online.length === 0) {
+			return sendFollowup(env, interaction, "Nobody is injected right now.");
+		}
+
+		const now = Date.now();
+		const lines = online.slice(0, LIST_LIMIT).map((p) => {
+			const ago = Math.round((now - p.at) / 1000);
+			return `• **${p.name || p.robloxUserId}** (${p.robloxUserId})` +
+				(p.place ? ` — place ${p.place}` : "") +
+				` — seen ${ago}s ago`;
+		});
+		if (online.length > LIST_LIMIT) lines.push(`…and ${online.length - LIST_LIMIT} more`);
+
+		await sendFollowup(
+			env,
+			interaction,
+			`**${online.length} injected**\n${lines.join("\n")}`
+		);
+	})());
+
+	return json({ type: 5, data: { flags: 64 } });
+}
+
 // Shared permission gate for /whitelistadmin: invoker must outrank the target.
 // Returns null (allowed) or a rejection message.
 async function checkHierarchy(env, invokerId, targetId, ctx) {
@@ -525,6 +569,7 @@ const HANDLERS = {
 	// One flat command per troll action (/fling, /kick, ...) -- keyed by bare
 	// name, see routeCommand.
 	...Object.fromEntries(ACTION_NAMES.map((action) => [action, cmdTrollAction])),
+	list: cmdList,
 };
 
 function routeCommand(interaction, env, ctx) {

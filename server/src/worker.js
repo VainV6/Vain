@@ -31,7 +31,7 @@
  */
 
 import { handleDiscordInteraction, resolveRank, authorizeTroll, discordUserIdFromToken } from "./discord.js";
-import { takeCommands } from "./troll.js";
+import { takeCommands, touchPresence } from "./troll.js";
 
 function json(obj, status = 200) {
 	return new Response(JSON.stringify(obj), {
@@ -86,6 +86,12 @@ export default {
 
 		const cmdMatch = url.pathname.match(/^\/commands\/(\d+)$/);
 		if (cmdMatch && req.method === "GET") {
+			// This poll is also the presence heartbeat /list reads -- deferred so a
+			// KV hiccup on the bookkeeping can never cost the client its commands.
+			ctx.waitUntil(touchPresence(env, cmdMatch[1], {
+				name: url.searchParams.get("name"),
+				place: url.searchParams.get("place"),
+			}));
 			return json({ commands: await takeCommands(env, cmdMatch[1]) });
 		}
 

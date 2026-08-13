@@ -101,6 +101,10 @@ const commands = [
 			},
 		],
 	},
+	{
+		name: "list",
+		description: "Everyone currently running Vain (Privileged and above)",
+	},
 	// One flat command per troll action -- /fling, /spin, /kick and so on --
 	// generated straight from the catalogue the Worker validates against, so the
 	// two can't drift. Flat means no subcommands: routeCommand() in
