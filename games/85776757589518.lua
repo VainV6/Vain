@@ -77,7 +77,7 @@ local function faceNearest()
 	if not hrp then return end
 	local part = nearestEnemyPart(hrp.Position)
 	if part and (part.Position - hrp.Position).Magnitude > 0.5 then
-		hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(part.Position.X, hrp.Position.Y, part.Position.Z))
+		hrp.CFrame = CFrame.lookAt(hrp.Position, part.Position) -- full 3D: pitches toward the enemy on the Y axis too
 	end
 end
 
@@ -407,16 +407,20 @@ run(function()
 					if retreating then
 						hum.PlatformStand = true
 						hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y + HoverHeight.Value, hrp.Position.Z)
+						hrp.AssemblyLinearVelocity = Vector3.zero
+						hrp.Anchored = true -- hold high out of reach, don't fall back down
 						-- heal-swap first (heals to full + restores loadout); if it can't
 						-- (no heal spell owned) fall back to waiting for natural regen.
 						if HealSwap.Enabled and healSwap() then
 							retreating = false
 							hum.PlatformStand = false
+							hrp.Anchored = false
 							return
 						end
 						if hpFrac >= math.min(RecoverHP.Value / 100, 0.98) then
 							retreating = false
 							hum.PlatformStand = false
+							hrp.Anchored = false
 						end
 						return
 					end
@@ -426,15 +430,18 @@ run(function()
 					if target and part then
 						local busy = char:FindFirstChild('busyCasting')
 						if UseTeleport.Enabled then
-							-- stand a few studs from the enemy (still in melee range) and FACE
-							-- it, so the swing + directional abilities land. Teleporting exactly
-							-- onto it would leave the look direction undefined.
+							-- hover beside the enemy, FACE it in full 3D (pitch down so the swing
+							-- travels into it, not over its head), and ANCHOR so we hold the hover
+							-- instead of falling back down into melee.
 							local ep = part.Position
 							local dir = (hrp.Position - ep) * Vector3.new(1, 0, 1)
 							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
 							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
-							hrp.CFrame = CFrame.lookAt(myPos, Vector3.new(ep.X, myPos.Y, ep.Z))
+							hrp.CFrame = CFrame.lookAt(myPos, ep)
+							hrp.AssemblyLinearVelocity = Vector3.zero
+							hrp.Anchored = true
 						else
+							hrp.Anchored = false
 							hum:Move((part.Position - hrp.Position) * Vector3.new(1, 0, 1))
 							faceNearest()
 						end
@@ -443,26 +450,30 @@ run(function()
 							castAbilities(abilityUsed)
 						end
 					else
-						-- room clear: nudge forward to trigger the next room's spawns
+						-- room clear: unanchor and nudge forward to trigger the next room
+						hrp.Anchored = false
 						hum:Move(hrp.CFrame.LookVector * Vector3.new(1, 0, 1))
 					end
 				end)
 				task.wait(FarmDelay.Value)
 			until not AutoFarm.Enabled
 			pcall(function()
-				local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
+				local ch = lplr.Character
+				local hum = ch and ch:FindFirstChildOfClass('Humanoid')
+				local hrp = ch and ch:FindFirstChild('HumanoidRootPart')
 				if hum then hum.PlatformStand = false end
+				if hrp then hrp.Anchored = false end -- never leave the character stuck anchored
 			end)
 		end,
 	})
-	SafeHP = AutoFarm:CreateSlider({ Name = 'Retreat below HP', Min = 5, Max = 90, Default = 40, Suffix = '%',
-		Tooltip = 'Float to safety and stop fighting when your HP drops below this.' })
+	SafeHP = AutoFarm:CreateSlider({ Name = 'Retreat below HP', Min = 5, Max = 90, Default = 55, Suffix = '%',
+		Tooltip = 'Anchor high out of reach and stop fighting when your HP drops below this. Raise it if you still die.' })
 	RecoverHP = AutoFarm:CreateSlider({ Name = 'Resume at HP', Min = 20, Max = 100, Default = 85, Suffix = '%',
 		Tooltip = 'Come back down and resume once HP recovers to this.' })
 	HoverHeight = AutoFarm:CreateSlider({ Name = 'Retreat Height', Min = 20, Max = 400, Default = 150, Suffix = ' studs',
 		Tooltip = 'How high to float above the map while recovering (out of enemy reach).' })
-	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 0, Suffix = ' studs',
-		Tooltip = 'Studs above each enemy to sit. 0 = right on them so your swing/Whirlwind actually connect. Raise it to dodge melee, but too high and your own hits miss.' })
+	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 8, Suffix = ' studs',
+		Tooltip = 'Studs ABOVE each enemy you hover while killing it — high enough that ground melee whiffs, low enough that your swing/Whirlwind AoE still reach down. If your hits stop landing, lower it; if you still take too much damage, raise it.' })
 	FarmDelay = AutoFarm:CreateSlider({ Name = 'Loop Delay', Min = 0, Max = 0.5, Default = 0.1, Decimal = 100, Suffix = 's',
 		Tooltip = 'Time between farm ticks (attack + reposition).' })
 	UseTeleport = AutoFarm:CreateToggle({ Name = 'Teleport to Enemies', Default = true,
