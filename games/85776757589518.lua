@@ -406,9 +406,9 @@ run(function()
 					if hpFrac <= SafeHP.Value / 100 then retreating = true end
 					if retreating then
 						hum.PlatformStand = true
+						hrp.Anchored = false
 						hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y + HoverHeight.Value, hrp.Position.Z)
 						hrp.AssemblyLinearVelocity = Vector3.zero
-						hrp.Anchored = true -- hold high out of reach, don't fall back down
 						-- heal-swap first (heals to full + restores loadout); if it can't
 						-- (no heal spell owned) fall back to waiting for natural regen.
 						if HealSwap.Enabled and healSwap() then
@@ -437,9 +437,9 @@ run(function()
 							local dir = (hrp.Position - ep) * Vector3.new(1, 0, 1)
 							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
 							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
+							hrp.Anchored = false
 							hrp.CFrame = CFrame.lookAt(myPos, ep)
 							hrp.AssemblyLinearVelocity = Vector3.zero
-							hrp.Anchored = true
 						else
 							hrp.Anchored = false
 							hum:Move((part.Position - hrp.Position) * Vector3.new(1, 0, 1))
