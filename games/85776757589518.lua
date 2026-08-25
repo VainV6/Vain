@@ -408,8 +408,8 @@ run(function()
 		Tooltip = 'Come back down and resume once HP recovers to this.' })
 	HoverHeight = AutoFarm:CreateSlider({ Name = 'Retreat Height', Min = 20, Max = 400, Default = 150, Suffix = ' studs',
 		Tooltip = 'How high to float above the map while recovering (out of enemy reach).' })
-	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 9, Suffix = ' studs',
-		Tooltip = 'How far above each enemy to sit while killing it, so ground melee misses you.' })
+	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 0, Suffix = ' studs',
+		Tooltip = 'Studs above each enemy to sit. 0 = right on them so your swing/Whirlwind actually connect. Raise it to dodge melee, but too high and your own hits miss.' })
 	FarmDelay = AutoFarm:CreateSlider({ Name = 'Loop Delay', Min = 0, Max = 0.5, Default = 0.1, Decimal = 100, Suffix = 's',
 		Tooltip = 'Time between farm ticks (attack + reposition).' })
 	UseTeleport = AutoFarm:CreateToggle({ Name = 'Teleport to Enemies', Default = true,

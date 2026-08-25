@@ -129,7 +129,8 @@ looper(vain.Categories.Blatant, 'Auto Boss Raid', 'Starts the boss raid as soon 
 -- ── Auto Sell ────────────────────────────────────────────────────────────────
 run(function()
 	local AutoSell, SellWeapons, SellAbilities, SellChests, SellHelmets, MaxRarity, KeepEquipped, SellInterval
-	local RARITY = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Divine = 6 }
+	-- reloadInvy reports rarity lowercase ("rare"), so key + look up in lowercase.
+	local RARITY = { common = 1, uncommon = 2, rare = 3, epic = 4, legendary = 5, divine = 6 }
 	AutoSell = vain.Categories.Utility:CreateModule({
 		Name = 'Auto Sell',
 		Tooltip = 'Sells items of the chosen categories at or below a rarity threshold. Skips equipped gear.',
@@ -142,7 +143,7 @@ run(function()
 					if not (getStorage and sellEvt) then return end
 					local storage = getStorage:InvokeServer()
 					if type(storage) ~= 'table' then return end
-					local maxR = RARITY[MaxRarity.Value] or 1
+					local maxR = RARITY[tostring(MaxRarity.Value):lower()] or 1
 					local toSell = { weapon = {}, ability = {}, chest = {}, helmet = {} }
 					local groups = {
 						{ on = SellWeapons, sub = storage.weapons, cat = 'weapon', strip = 8 },
@@ -153,7 +154,7 @@ run(function()
 					for _, g in groups do
 						if g.on.Enabled and type(g.sub) == 'table' then
 							for id, item in pairs(g.sub) do
-								local rank = RARITY[fv(item, 'rarity')]
+								local rank = RARITY[tostring(fv(item, 'rarity') or ''):lower()]
 								local eq = item.equipped
 								local equipped = eq == true or (type(eq) == 'table' and (eq.q or eq.e or eq.q2 or eq.e2))
 								if rank and rank <= maxR and not (KeepEquipped.Enabled and equipped) then
