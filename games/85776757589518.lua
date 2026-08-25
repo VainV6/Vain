@@ -114,6 +114,7 @@ run(function()
 		Tooltip = 'Automatically swings your equipped weapon while in a dungeon.',
 		Function = function(callback)
 			if not callback then return end
+			setupDodge()
 			local weaponUsed = remote('weaponUsed')
 			repeat
 				pcall(function()
@@ -251,7 +252,95 @@ end)
 -- threshold it floats high out of reach and waits to recover, so it never dies.
 -- When a room is clear it walks forward to trigger the next one.
 run(function()
-	local AutoFarm, SafeHP, RecoverHP, HoverHeight, EnemyOffset, FarmDelay, UseTeleport, HealSwap
+	local AutoFarm, SafeHP, RecoverHP, HoverHeight, EnemyOffset, FarmDelay, UseTeleport, HealSwap, DodgeAttacks, BossHeight
+
+	-- ── Boss detection + attack dodging ────────────────────────────────────
+	-- Every boss/enemy AREA attack is telegraphed to the client over a BridgeNet2
+	-- 'precastHitbox' bridge: Cube {cframe,size} or Circle {position,radius}, each with
+	-- a delayUntilAttack lead time. We attach a second listener to that same bridge,
+	-- remember each danger zone, and step out of it before it lands. This dodges EVERY
+	-- boss's telegraphed attacks without hardcoding a single boss.
+	local dangers = {}
+	local dodgeReady = false
+	local function setupDodge()
+		if dodgeReady then return end
+		dodgeReady = true
+		pcall(function()
+			local util = replicatedStorage:FindFirstChild('Utility')
+			local bn = util and util:FindFirstChild('BridgeNet2')
+			if not bn then return end
+			local BridgeNet2 = require(bn)
+			local bridge = BridgeNet2.ReferenceBridge('precastHitbox')
+			bridge:Connect(function(data)
+				if type(data) ~= 'table' then return end
+				local start = tonumber(data.startTime) or workspace:GetServerTimeNow()
+				local delay = tonumber(data.delayUntilAttack) or 0.3
+				local expire = start + delay + 0.4 -- stay clear until just after the hit resolves
+				if typeof(data.cframe) == 'CFrame' and typeof(data.size) == 'Vector3' then
+					table.insert(dangers, { kind = 'cube', cf = data.cframe, size = data.size, expire = expire })
+				elseif typeof(data.position) == 'Vector3' and tonumber(data.radius) then
+					table.insert(dangers, { kind = 'circle', pos = data.position, radius = tonumber(data.radius), expire = expire })
+				end
+			end)
+		end)
+	end
+
+	-- boss fight active? the bossRoom's fightingBoss flag is the game's own signal.
+	local bossRoomCache
+	local function bossActive()
+		if not (bossRoomCache and bossRoomCache.Parent) then
+			bossRoomCache = workspace:FindFirstChild('bossRoom', true)
+		end
+		local fb = bossRoomCache and bossRoomCache:FindFirstChild('fightingBoss')
+		return fb ~= nil and fb:IsA('BoolValue') and fb.Value == true
+	end
+
+	-- is pos inside danger zone d (with a horizontal safety margin)?
+	local function inDanger(pos, d, margin)
+		if d.kind == 'circle' then
+			local dx, dz = pos.X - d.pos.X, pos.Z - d.pos.Z
+			return (dx * dx + dz * dz) <= (d.radius + margin) ^ 2
+		else
+			local lp = d.cf:PointToObjectSpace(pos)
+			local h = d.size * 0.5
+			return math.abs(lp.X) <= h.X + margin and math.abs(lp.Z) <= h.Z + margin
+				and math.abs(lp.Y) <= h.Y + 8
+		end
+	end
+
+	-- nearest position OUTSIDE danger zone d (horizontal push-out).
+	local function safeSpot(pos, d, margin)
+		if d.kind == 'circle' then
+			local dir = Vector3.new(pos.X - d.pos.X, 0, pos.Z - d.pos.Z)
+			dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(1, 0, 0)
+			return Vector3.new(d.pos.X, pos.Y, d.pos.Z) + dir * (d.radius + margin)
+		else
+			local lp = d.cf:PointToObjectSpace(pos)
+			local h = d.size * 0.5
+			local exitX = (h.X + margin) - math.abs(lp.X)
+			local exitZ = (h.Z + margin) - math.abs(lp.Z)
+			local nlp
+			if exitX <= exitZ then
+				nlp = Vector3.new((h.X + margin) * (lp.X >= 0 and 1 or -1), lp.Y, lp.Z)
+			else
+				nlp = Vector3.new(lp.X, lp.Y, (h.Z + margin) * (lp.Z >= 0 and 1 or -1))
+			end
+			return d.cf:PointToWorldSpace(nlp)
+		end
+	end
+
+	-- purge expired zones; if we're standing in one, return where to step to (else nil).
+	local function dodgeTarget(pos)
+		local now = workspace:GetServerTimeNow()
+		for i = #dangers, 1, -1 do
+			if now > dangers[i].expire then table.remove(dangers, i) end
+		end
+		local margin = 5
+		for _, d in dangers do
+			if inDanger(pos, d, margin) then return safeSpot(pos, d, margin + 3) end
+		end
+		return nil
+	end
 
 	-- storage items may store a field as a plain value or as {Value=x}.
 	local function fv(item, key)
@@ -423,6 +512,18 @@ run(function()
 					if not (char and hrp and hum) then return end
 					local peaceful = lplr:FindFirstChild('peaceful')
 					if peaceful and peaceful.Value == true then return end -- in town/lobby, nothing to farm
+					
+					-- DODGE (top priority): if we're standing in a telegraphed attack, get out NOW.
+					if DodgeAttacks.Enabled then
+						local safe = dodgeTarget(hrp.Position)
+						if safe then
+							hum.PlatformStand = false
+							hrp.Anchored = false
+							hrp.CFrame = CFrame.new(safe)
+							hrp.AssemblyLinearVelocity = Vector3.zero
+							return
+						end
+					end
 
 					-- safety: drop into retreat below SafeHP, resume once RecoverHP reached
 					local hpFrac = hum.MaxHealth > 0 and hum.Health / hum.MaxHealth or 1
@@ -457,7 +558,9 @@ run(function()
 							local ep = part.Position
 							local dir = (hrp.Position - ep) * Vector3.new(1, 0, 1)
 							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
-							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
+							-- while a boss is being fought, hover higher (bosses have big ground attacks)
+							local height = bossActive() and BossHeight.Value or EnemyOffset.Value
+							local myPos = ep + dir * 4 + Vector3.new(0, height, 0)
 							hrp.Anchored = false
 							-- PlatformStand disables the Humanoid's auto-upright, so the pitched
 							-- look-at HOLDS instead of snapping back every frame (that snap-back
@@ -508,6 +611,10 @@ run(function()
 		Tooltip = 'On: instantly reposition onto each enemy (fast, may trip anti-cheat). Off: walk to them (slower, safer).' })
 	HealSwap = AutoFarm:CreateToggle({ Name = 'Heal Swap when low', Default = true,
 		Tooltip = 'When low, if you own a heal spell: swap to best spell-power weapon + 1-2 heals, heal to full, then restore your set. Requires the game to allow mid-run equipping.' })
+		DodgeAttacks = AutoFarm:CreateToggle({ Name = 'Dodge Attacks', Default = true,
+			Tooltip = "Reads the game's own attack telegraphs (the neon danger zones bosses/enemies cast) and steps you out before they hit. Works on every boss, no per-boss setup." })
+		BossHeight = AutoFarm:CreateSlider({ Name = 'Boss Attack Height', Min = 0, Max = 60, Default = 16, Suffix = ' studs',
+			Tooltip = 'Attack height used automatically while a boss is being fought - bosses have bigger ground attacks, so it hovers higher than the normal Attack Height. Combined with Dodge Attacks you should take little to no damage.' })
 end)
 
 --VAINEOF
