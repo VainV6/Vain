@@ -182,7 +182,14 @@ end)
 -- (a BoolValue) as its completion flag, so we do exactly the same. It is only true
 -- once the final boss is dead / the run has actually ended, never mid-run.
 local function dungeonOver()
-	local bossRoom = workspace:FindFirstChild('bossRoom', true)
+	-- mirror the game's own isRunFinished(): boss raids flip workspace.dungeonProgress
+	-- to "bossKilled"; normal dungeons flip workspace.dungeon.bossRoom.dungeonFinished.
+	-- Must be the EXACT path - a recursive bossRoom search hit a wrong room reading true
+	-- (that was the 'replays/lobbies immediately' bug).
+	local dp = workspace:FindFirstChild('dungeonProgress')
+	if dp and dp:IsA('StringValue') and dp.Value == 'bossKilled' then return true end
+	local dungeon = workspace:FindFirstChild('dungeon')
+	local bossRoom = dungeon and dungeon:FindFirstChild('bossRoom')
 	local df = bossRoom and bossRoom:FindFirstChild('dungeonFinished')
 	return df ~= nil and df:IsA('BoolValue') and df.Value == true
 end
@@ -223,19 +230,17 @@ run(function()
 				local acted = false
 				pcall(function()
 					if not firesignal then return end
+					if not dungeonOver() then return end -- gate FIRST; nothing fires mid-run
 					local pg = lplr:FindFirstChild('PlayerGui')
 					if not pg then return end
-					-- step 2: the confirm popup is open -> click its confirm(Yes) side
+					-- ReplayConfirmation is pre-cloned at dungeon start (Enabled=false) and its
+					-- confirm(Yes) button is wired straight to doReplay(), so once the run is over we
+					-- fire that Yes directly (no need to open the dialog first).
 					local confirm = pg:FindFirstChild('ReplayConfirmation')
-					if confirm then
-						confirm.Enabled = true
-						local yesHolder = confirm:FindFirstChild('confirm', true)
-						local yes = yesHolder and yesHolder:FindFirstChildWhichIsA('GuiButton', true)
-						if yes then firesignal(yes.MouseButton1Click) acted = true end
-						return
-					end
-					-- step 1: only once the run has ended, open the confirm via the Replay button
-					if not dungeonOver() then return end
+					local yesHolder = confirm and confirm:FindFirstChild('confirm', true)
+					local yes = yesHolder and yesHolder:FindFirstChildWhichIsA('GuiButton', true)
+					if yes then firesignal(yes.MouseButton1Click) acted = true return end
+					-- fallback: open the confirm via the options-menu Replay button
 					local btn = pg:FindFirstChild('ReplayDungeonButton', true)
 					if btn and not btn:IsA('GuiButton') then btn = btn:FindFirstChildWhichIsA('GuiButton', true) end
 					if btn and btn:IsA('GuiButton') then firesignal(btn.MouseButton1Click) acted = true end
@@ -286,12 +291,10 @@ run(function()
 	end
 
 	-- boss fight active? the bossRoom's fightingBoss flag is the game's own signal.
-	local bossRoomCache
 	local function bossActive()
-		if not (bossRoomCache and bossRoomCache.Parent) then
-			bossRoomCache = workspace:FindFirstChild('bossRoom', true)
-		end
-		local fb = bossRoomCache and bossRoomCache:FindFirstChild('fightingBoss')
+		local dungeon = workspace:FindFirstChild('dungeon')
+		local bossRoom = dungeon and dungeon:FindFirstChild('bossRoom')
+		local fb = bossRoom and bossRoom:FindFirstChild('fightingBoss')
 		return fb ~= nil and fb:IsA('BoolValue') and fb.Value == true
 	end
 

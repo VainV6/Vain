@@ -41,9 +41,9 @@ end
 -- ── Auto Start Dungeon ───────────────────────────────────────────────────────
 run(function()
 	local AutoStart, Dungeon, Difficulty, Hardcore, FriendsOnly, WaveDefence, BestDungeon, Buffer
-	-- Dungeon names for the dropdown. Level requirements are NOT hardcoded (they
-	-- change across updates) — Best Dungeon and the level box read each dungeon's real
-	-- minLevelReq live from the lobby UI (queueGui.chooseDungeon.backgroundFillLeft).
+	-- Dungeon names for the dropdown. Level requirements are per dungeon AND per
+	-- difficulty and change across updates, so we ask the game itself via the
+	-- getDungeonStats remote: getDungeonStats(name) -> { [difficulty] = { levelReq = N } }.
 	local DUNGEONS = {
 		'Desert Temple', 'Winter Outpost', 'The Underworld', 'Samurai Palace', 'The Canals',
 		"King's Castle", 'Aquatic Temple', 'Enchanted Forest', 'Volcanic Chambers', 'Ghastly Harbor',
@@ -51,38 +51,32 @@ run(function()
 	}
 	local names = {}
 	for _, n in DUNGEONS do table.insert(names, n) end
-	local function dungeonScroll()
-		local pg = lplr:FindFirstChild('PlayerGui')
-		local qg = pg and pg:FindFirstChild('queueGui')
-		local cd = qg and qg:FindFirstChild('chooseDungeon')
-		local bfl = cd and cd:FindFirstChild('backgroundFillLeft')
-		return bfl and bfl:FindFirstChild('ScrollingFrame')
+	local statsCache = {}
+	local function dungeonStats(name)
+		if statsCache[name] == nil then
+			local r = remote('getDungeonStats')
+			local ok, res = pcall(function() return r and r:InvokeServer(name) end)
+			statsCache[name] = (ok and type(res) == 'table') and res or false
+		end
+		return statsCache[name] or nil
 	end
-	-- each dungeon element carries mapName.minLevelReq.Value (the level to create it)
-	local function minLevelOf(name)
-		local sf = dungeonScroll()
-		local el = sf and sf:FindFirstChild(name)
-		local mn = el and el:FindFirstChild('mapName')
-		local mlr = mn and mn:FindFirstChild('minLevelReq')
-		return mlr and tonumber(mlr.Value) or nil
+	-- level needed for (dungeon, difficulty), or nil if that difficulty isn't offered.
+	local function levelReqFor(name, difficulty)
+		local st = dungeonStats(name)
+		local d = st and st[difficulty]
+		return d and tonumber(d.levelReq) or nil
 	end
-	local function bestDungeonName()
-		local sf = dungeonScroll()
+	-- highest dungeon you can enter at the chosen difficulty for your level (nil if none).
+	local function bestDungeonName(difficulty)
 		local lvl = playerLevel()
 		local best, bestReq
-		if sf then
-			for _, el in sf:GetChildren() do
-				if el:IsA('GuiObject') then
-					local mn = el:FindFirstChild('mapName')
-					local mlr = mn and mn:FindFirstChild('minLevelReq')
-					local req = mlr and tonumber(mlr.Value)
-					if req and req <= lvl and (not bestReq or req > bestReq) then
-						best, bestReq = el.Name, req
-					end
-				end
+		for _, n in DUNGEONS do
+			local req = levelReqFor(n, difficulty)
+			if req and req <= lvl and (not bestReq or req > bestReq) then
+				best, bestReq = n, req
 			end
 		end
-		return best or (Dungeon and Dungeon.Value) or names[1]
+		return best
 	end
 
 	AutoStart = vain.Categories.Blatant:CreateModule({
@@ -97,20 +91,34 @@ run(function()
 			repeat
 				pcall(function()
 					if not (createLobby and startDungeon) then return end
-					local name = BestDungeon.Enabled and bestDungeonName() or Dungeon.Value
-					-- level requirement handed to createLobby: read the dungeon's real minLevelReq
-					-- live so it always matches (falls back to your level if the UI isn't up yet).
-					local levelReq = minLevelOf(name) or playerLevel()
+					local difficulty = Difficulty.Value
+					local name = BestDungeon.Enabled and bestDungeonName(difficulty) or Dungeon.Value
+					if not name then
+						if not notified and vain and vain.CreateNotification then
+							vain:CreateNotification('Vain DQ', 'No dungeon available on ' .. tostring(difficulty)
+								.. ' for your level (' .. playerLevel() .. ').', 5, 'alert')
+							notified = true
+						end
+						return
+					end
+					-- validate level BEFORE trying, so we never spam failed create calls.
+					local req = levelReqFor(name, difficulty)
+					if req and req > playerLevel() then
+						if not notified and vain and vain.CreateNotification then
+							vain:CreateNotification('Vain DQ', '"' .. tostring(name) .. '" on ' .. tostring(difficulty)
+								.. ' needs level ' .. req .. ' - you are ' .. playerLevel() .. '.', 5, 'alert')
+							notified = true
+						end
+						return
+					end
 					-- createLobby(name, difficulty, levelReq, hardcore, friendsOnly/private, waveDefence)
 					-- returns true ONLY when the party is actually created -> start only then.
-					local ok = createLobby:InvokeServer(name, Difficulty.Value, levelReq,
+					local ok = createLobby:InvokeServer(name, difficulty, req or playerLevel(),
 						Hardcore.Enabled, FriendsOnly.Enabled, WaveDefence.Enabled)
 					if ok ~= true then
 						if not notified and vain and vain.CreateNotification then
-							local req = minLevelOf(name)
 							vain:CreateNotification('Vain DQ', 'Create party failed for "' .. tostring(name)
-								.. '" (' .. tostring(Difficulty.Value) .. ').' ..
-								(req and (' Needs level ' .. req .. ' — you are ' .. playerLevel() .. '.') or ''), 5, 'alert')
+								.. '" (' .. tostring(difficulty) .. '). Try again in a moment.', 5, 'alert')
 							notified = true
 						end
 						return
