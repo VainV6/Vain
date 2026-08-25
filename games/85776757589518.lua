@@ -173,52 +173,73 @@ run(function()
 	})
 end)
 
--- ── Dungeon flow (no-arg remotes) ────────────────────────────────────────────
--- Auto Start only fires from the lobby/town (peaceful == true); the rest are safe
--- to fire on a loop since the server ignores them when they don't apply.
-local inLobby = function()
-	local p = lplr:FindFirstChild('peaceful')
-	return p and p.Value == true
-end
+-- ── Dungeon flow ───────────────────────────────────────────────────────
 -- Auto Start Dungeon / Auto Ready Up / Auto Boss Raid are lobby actions -> they
--- live in the lobby file (games/77649408247578.lua). Auto Return to Lobby stays
--- here since it fires from the in-dungeon results screen.
-looper(vain.Categories.Utility, 'Auto Return to Lobby',
-	'Returns to the lobby automatically when a dungeon ends.', 'ReturnToLobbyEvent', 1)
+-- live in the lobby file (games/77649408247578.lua).
 
--- ── Auto Replay ──────────────────────────────────────────────────────────────
--- The replay call needs the game's own config table, so instead of guessing it we
--- click the real Replay button the results screen shows — the game then fires
--- replayDungeon with the correct payload (re-equips gear, advances tier, etc.).
+-- Shared "the run is over" check: the game itself reads bossRoom.dungeonFinished
+-- (a BoolValue) as its completion flag, so we do exactly the same. It is only true
+-- once the final boss is dead / the run has actually ended, never mid-run.
+local function dungeonOver()
+	local bossRoom = workspace:FindFirstChild('bossRoom', true)
+	local df = bossRoom and bossRoom:FindFirstChild('dungeonFinished')
+	return df ~= nil and df:IsA('BoolValue') and df.Value == true
+end
+
+-- ── Auto Return to Lobby ──────────────────────────────────────────────────
 run(function()
-	local AutoReplay
-
-	-- The dungeon is "over" when the results screen is up — which happens BOTH on a
-	-- boss kill and on a hardcore wipe — or when the boss room's dungeonFinished flag
-	-- is set. Gate on that so it never replays mid-run.
-	local function dungeonOver()
-		local pg = lplr:FindFirstChild('PlayerGui')
-		local holder = pg and pg:FindFirstChild('rewardGuiHolder')
-		if holder and #holder:GetChildren() > 0 then return true end
-		local df = workspace:FindFirstChild('dungeonFinished', true)
-		if df and df:IsA('BoolValue') and df.Value == true then return true end
-		return false
-	end
-
-	AutoReplay = vain.Categories.Blatant:CreateModule({
-		Name = 'Auto Replay',
-		Tooltip = 'Once the dungeon is over (final boss defeated, or the party wiped in hardcore), clicks the real Replay button so the game handles gear/tier correctly.',
+	local AutoReturn
+	AutoReturn = vain.Categories.Utility:CreateModule({
+		Name = 'Auto Return to Lobby',
+		Tooltip = 'Returns to the lobby, but ONLY once the run is actually over (boss defeated / run finished) - never mid-dungeon.',
 		Function = function(callback)
 			if not callback then return end
 			repeat
 				pcall(function()
-					if not (firesignal and dungeonOver()) then return end
-					local pg = lplr:FindFirstChild('PlayerGui')
-					local btn = pg and pg:FindFirstChild('ReplayDungeonButton', true)
-					if btn and not btn:IsA('GuiButton') then btn = btn:FindFirstChildWhichIsA('GuiButton', true) end
-					if btn and btn:IsA('GuiButton') then firesignal(btn.MouseButton1Click) end
+					if not dungeonOver() then return end
+					local r = remote('ReturnToLobbyEvent')
+					if r then r:FireServer() end
 				end)
-				task.wait(0.6)
+				task.wait(1)
+			until not AutoReturn.Enabled
+		end,
+	})
+end)
+
+-- ── Auto Replay ──────────────────────────────────────────────────────────────────
+-- Clicking Replay is a TWO-step popup: the Replay button opens a 'ReplayConfirmation'
+-- dialog, then its confirm(Yes) button actually replays. That Replay button also
+-- works mid-run, so we only click it once dungeonOver() is true (clicking it mid-run
+-- was the 'restarts immediately' bug). Step 2 just answers the Yes popup.
+run(function()
+	local AutoReplay
+	AutoReplay = vain.Categories.Blatant:CreateModule({
+		Name = 'Auto Replay',
+		Tooltip = 'When the run is over (final boss defeated) it clicks Replay and confirms the Yes popup so a fresh run starts. Does nothing mid-dungeon.',
+		Function = function(callback)
+			if not callback then return end
+			repeat
+				local acted = false
+				pcall(function()
+					if not firesignal then return end
+					local pg = lplr:FindFirstChild('PlayerGui')
+					if not pg then return end
+					-- step 2: the confirm popup is open -> click its confirm(Yes) side
+					local confirm = pg:FindFirstChild('ReplayConfirmation')
+					if confirm then
+						confirm.Enabled = true
+						local yesHolder = confirm:FindFirstChild('confirm', true)
+						local yes = yesHolder and yesHolder:FindFirstChildWhichIsA('GuiButton', true)
+						if yes then firesignal(yes.MouseButton1Click) acted = true end
+						return
+					end
+					-- step 1: only once the run has ended, open the confirm via the Replay button
+					if not dungeonOver() then return end
+					local btn = pg:FindFirstChild('ReplayDungeonButton', true)
+					if btn and not btn:IsA('GuiButton') then btn = btn:FindFirstChildWhichIsA('GuiButton', true) end
+					if btn and btn:IsA('GuiButton') then firesignal(btn.MouseButton1Click) acted = true end
+				end)
+				task.wait(acted and 2.5 or 0.5)
 			until not AutoReplay.Enabled
 		end,
 	})
@@ -479,8 +500,8 @@ run(function()
 		Tooltip = 'Come back down and resume once HP recovers to this.' })
 	HoverHeight = AutoFarm:CreateSlider({ Name = 'Retreat Height', Min = 20, Max = 400, Default = 150, Suffix = ' studs',
 		Tooltip = 'How high to float above the map while recovering (out of enemy reach).' })
-	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 2, Suffix = ' studs',
-		Tooltip = 'Studs above each enemy. Keep it LOW (0-3) so you fight at their level and your swing/abilities land (facing is horizontal to avoid the Y-axis jitter). Raise it for safety, but hits start missing since you aim level, not down.' })
+	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 8, Suffix = ' studs',
+		Tooltip = 'Studs above each enemy. The character now pitches to aim DOWN at the enemy (held by PlatformStand), so you can hover safely up here and abilities still land. Lower it toward 0 if you want your short-range swing to connect too.' })
 	FarmDelay = AutoFarm:CreateSlider({ Name = 'Loop Delay', Min = 0, Max = 0.5, Default = 0.1, Decimal = 100, Suffix = 's',
 		Tooltip = 'Time between farm ticks (attack + reposition).' })
 	UseTeleport = AutoFarm:CreateToggle({ Name = 'Teleport to Enemies', Default = true,

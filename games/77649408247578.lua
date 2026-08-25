@@ -56,6 +56,7 @@ run(function()
 		{ name = 'Pirate Island', minLevel = 102 },
 		{ name = 'Steampunk Sewers', minLevel = 118 },
 		{ name = 'Northern Lands', minLevel = 138 },
+		{ name = 'Orbital Outpost', minLevel = 160 },
 	}
 	local names = {}
 	for _, d in DUNGEONS do table.insert(names, d.name) end
@@ -75,19 +76,34 @@ run(function()
 			local createLobby = remote('createLobby')
 			local startDungeon = remote('startDungeon')
 			local readyUp = remote('readyUp')
+			local notified = false
 			repeat
 				pcall(function()
-					local peaceful = lplr:FindFirstChild('peaceful')
-					if peaceful and peaceful.Value == false then return end -- already in a dungeon
 					if not (createLobby and startDungeon) then return end
 					local name = BestDungeon.Enabled and bestDungeonName() or Dungeon.Value
-					createLobby:InvokeServer(name, Difficulty.Value, playerLevel(),
+					-- party join level requirement: the dungeon's own min level, so the server
+					-- always accepts it (that is exactly what the level box defaults to).
+					local levelReq = 1
+					for _, d in DUNGEONS do if d.name == name then levelReq = d.minLevel break end end
+					-- createLobby(name, difficulty, levelReq, hardcore, friendsOnly/private, waveDefence)
+					-- returns true ONLY when the party is actually created -> start only then.
+					local ok = createLobby:InvokeServer(name, Difficulty.Value, levelReq,
 						Hardcore.Enabled, FriendsOnly.Enabled, WaveDefence.Enabled)
+					if ok ~= true then
+						if not notified and vain and vain.CreateNotification then
+							vain:CreateNotification('Vain DQ', 'Create party failed for "' .. tostring(name)
+								.. '" (' .. tostring(Difficulty.Value) .. '). Are you high enough level?', 5, 'alert')
+							notified = true
+						end
+						return
+					end
+					notified = false
 					task.wait(Buffer.Value)
 					if readyUp then pcall(function() readyUp:FireServer() end) end
-					startDungeon:FireServer()
+					task.wait(0.2)
+					startDungeon:FireServer() -- starts the party -> teleports everyone into the dungeon
 				end)
-				task.wait(math.max(Buffer.Value + 2, 3))
+				task.wait(math.max(Buffer.Value + 3, 4))
 			until not AutoStart.Enabled
 		end,
 	})
@@ -158,7 +174,8 @@ run(function()
 								local eq = item.equipped
 								local equipped = eq == true or (type(eq) == 'table' and (eq.q or eq.e or eq.q2 or eq.e2))
 								if rank and rank <= maxR and not (KeepEquipped.Enabled and equipped) then
-									table.insert(toSell[g.cat], tostring(id):sub(g.strip))
+									local num = tonumber(tostring(id):sub(g.strip))
+								if num then table.insert(toSell[g.cat], num) end
 								end
 							end
 						end
@@ -186,9 +203,17 @@ end)
 -- ── Auto Equip Best ──────────────────────────────────────────────────────────
 run(function()
 	local AutoEquip, EquipClass, EquipInterval
+	local RARITY = { common = 1, uncommon = 2, rare = 3, epic = 4, legendary = 5, divine = 6 }
 	local function power(item)
-		local stat = EquipClass.Value == 'Mage' and 'spellPower' or 'physicalPower'
-		return tonumber(fv(item, stat)) or 0
+		-- rank by the class's power stat; weapons expose physicalDamage rather than
+		-- physicalPower, so a warrior checks both. If the inventory table carries no
+		-- power stats, fall back to rarity so it still equips the best it can see.
+		local fields = EquipClass.Value == 'Mage' and { 'spellPower' }
+			or { 'physicalPower', 'physicalDamage' }
+		local best = 0
+		for _, k in fields do best = math.max(best, tonumber(fv(item, k)) or 0) end
+		if best > 0 then return best end
+		return RARITY[tostring(fv(item, 'rarity') or ''):lower()] or 0
 	end
 	AutoEquip = vain.Categories.Utility:CreateModule({
 		Name = 'Auto Equip Best',
@@ -217,7 +242,7 @@ run(function()
 								end
 							end
 							if bestId and bestEq ~= true then
-								equip:InvokeServer(g.cat, bestId)
+								equip:InvokeServer(g.cat, tonumber(bestId))
 							end
 						end
 					end
