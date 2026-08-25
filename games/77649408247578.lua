@@ -1,0 +1,233 @@
+-- Dungeon Quest LOBBY (universe 9931749389) — Vain modules.
+-- Lobby actions: create/start dungeon, ready up, boss raid, sell, equip.
+-- Verified from the place dump: ReplicatedStorage.remotes.* ,
+--   createLobby(name, difficulty, level, hardcore, friendsOnly, waveDefence),
+--   sellItemEvent({weapon={ids},ability={},chest={},helmet={}}),
+--   equipItem(category, uniqueItemNum[, slot]),
+--   getPlayerStorage() -> {weapons,abilities,chests,helmets} keyed "<cat>_<id>".
+
+local run = function(func)
+	local ok, err = pcall(func)
+	if not ok then
+		local vain = shared.vain
+		if vain and vain.CreateNotification then
+			vain:CreateNotification('Vain DQ', 'Module failed to load: ' .. tostring(err), 5, 'alert')
+		end
+	end
+end
+
+local cloneref = cloneref or function(o) return o end
+local playersService = cloneref(game:GetService('Players'))
+local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
+local lplr = playersService.LocalPlayer
+local vain = shared.vain
+
+local remotesFolder = replicatedStorage:FindFirstChild('remotes')
+if not remotesFolder then pcall(function() remotesFolder = replicatedStorage:WaitForChild('remotes', 10) end) end
+local function remote(name) return remotesFolder and remotesFolder:FindFirstChild(name) end
+
+local function playerLevel()
+	local ls = lplr:FindFirstChild('leaderstats')
+	local lvl = ls and ls:FindFirstChild('Level')
+	return (lvl and tonumber(lvl.Value)) or 1
+end
+-- field value helper: storage items may store a field as a number or as {Value=x}.
+local function fv(item, key)
+	local v = item[key]
+	if type(v) == 'table' and v.Value ~= nil then v = v.Value end
+	return v
+end
+
+-- ── Auto Start Dungeon ───────────────────────────────────────────────────────
+run(function()
+	local AutoStart, Dungeon, Difficulty, Hardcore, FriendsOnly, WaveDefence, BestDungeon, Buffer
+	-- DQ dungeons by ascending min level (approx; Best Dungeon picks highest <= your level).
+	local DUNGEONS = {
+		{ name = 'Desert Temple', minLevel = 1 },
+		{ name = 'Winter Outpost', minLevel = 8 },
+		{ name = 'The Underworld', minLevel = 16 },
+		{ name = 'Samurai Palace', minLevel = 24 },
+		{ name = 'The Canals', minLevel = 34 },
+		{ name = "King's Castle", minLevel = 44 },
+		{ name = 'Aquatic Temple', minLevel = 54 },
+		{ name = 'Enchanted Forest', minLevel = 64 },
+		{ name = 'Volcanic Chambers', minLevel = 76 },
+		{ name = 'Ghastly Harbor', minLevel = 88 },
+		{ name = 'Pirate Island', minLevel = 102 },
+		{ name = 'Steampunk Sewers', minLevel = 118 },
+		{ name = 'Northern Lands', minLevel = 138 },
+	}
+	local names = {}
+	for _, d in DUNGEONS do table.insert(names, d.name) end
+	local function bestDungeonName()
+		local lvl, best = playerLevel(), nil
+		for _, d in DUNGEONS do
+			if d.minLevel <= lvl and (not best or d.minLevel > best.minLevel) then best = d end
+		end
+		return best and best.name or names[1]
+	end
+
+	AutoStart = vain.Categories.Blatant:CreateModule({
+		Name = 'Auto Start Dungeon',
+		Tooltip = 'Creates a lobby with your chosen settings and starts the run. Only fires while in the lobby/town.',
+		Function = function(callback)
+			if not callback then return end
+			local createLobby = remote('createLobby')
+			local startDungeon = remote('startDungeon')
+			local readyUp = remote('readyUp')
+			repeat
+				pcall(function()
+					local peaceful = lplr:FindFirstChild('peaceful')
+					if peaceful and peaceful.Value == false then return end -- already in a dungeon
+					if not (createLobby and startDungeon) then return end
+					local name = BestDungeon.Enabled and bestDungeonName() or Dungeon.Value
+					createLobby:InvokeServer(name, Difficulty.Value, playerLevel(),
+						Hardcore.Enabled, FriendsOnly.Enabled, WaveDefence.Enabled)
+					task.wait(Buffer.Value)
+					if readyUp then pcall(function() readyUp:FireServer() end) end
+					startDungeon:FireServer()
+				end)
+				task.wait(math.max(Buffer.Value + 2, 3))
+			until not AutoStart.Enabled
+		end,
+	})
+	Dungeon = AutoStart:CreateDropdown({ Name = 'Dungeon', List = names, Default = names[1],
+		Tooltip = 'Which dungeon to run (ignored when Best Dungeon is on).' })
+	Difficulty = AutoStart:CreateDropdown({ Name = 'Difficulty',
+		List = { 'Easy', 'Medium', 'Hard', 'Insane', 'Nightmare', 'Master' }, Default = 'Hard' })
+	BestDungeon = AutoStart:CreateToggle({ Name = 'Best Dungeon', Default = false,
+		Tooltip = 'Auto-pick the highest-level dungeon you can currently enter.' })
+	Hardcore = AutoStart:CreateToggle({ Name = 'Hardcore', Default = false })
+	FriendsOnly = AutoStart:CreateToggle({ Name = 'Friends Only', Default = false })
+	WaveDefence = AutoStart:CreateToggle({ Name = 'Wave Defence', Default = false })
+	Buffer = AutoStart:CreateSlider({ Name = 'Buffer Interval', Min = 0, Max = 10, Default = 2, Decimal = 10, Suffix = 's',
+		Tooltip = 'How long to wait after creating the lobby before starting.' })
+end)
+
+-- ── Auto Ready Up / Auto Boss Raid ───────────────────────────────────────────
+local function looper(category, name, tooltip, remoteName, interval)
+	run(function()
+		local Module
+		Module = category:CreateModule({
+			Name = name, Tooltip = tooltip,
+			Function = function(callback)
+				if not callback then return end
+				repeat
+					pcall(function()
+						local r = remote(remoteName)
+						if r then r:FireServer() end
+					end)
+					task.wait(interval)
+				until not Module.Enabled
+			end,
+		})
+	end)
+end
+looper(vain.Categories.Blatant, 'Auto Ready Up', 'Automatically readies up in the party lobby.', 'readyUp', 1)
+looper(vain.Categories.Blatant, 'Auto Boss Raid', 'Starts the boss raid as soon as the lobby is ready.', 'startBossRaid', 1)
+
+-- ── Auto Sell ────────────────────────────────────────────────────────────────
+run(function()
+	local AutoSell, SellWeapons, SellAbilities, SellChests, SellHelmets, MaxRarity, KeepEquipped, SellInterval
+	local RARITY = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Divine = 6 }
+	AutoSell = vain.Categories.Utility:CreateModule({
+		Name = 'Auto Sell',
+		Tooltip = 'Sells items of the chosen categories at or below a rarity threshold. Skips equipped gear.',
+		Function = function(callback)
+			if not callback then return end
+			local getStorage = remote('getPlayerStorage')
+			local sellEvt = remote('sellItemEvent')
+			repeat
+				pcall(function()
+					if not (getStorage and sellEvt) then return end
+					local storage = getStorage:InvokeServer()
+					if type(storage) ~= 'table' then return end
+					local maxR = RARITY[MaxRarity.Value] or 1
+					local toSell = { weapon = {}, ability = {}, chest = {}, helmet = {} }
+					local groups = {
+						{ on = SellWeapons, sub = storage.weapons, cat = 'weapon', strip = 8 },
+						{ on = SellAbilities, sub = storage.abilities, cat = 'ability', strip = 9 },
+						{ on = SellChests, sub = storage.chests, cat = 'chest', strip = 7 },
+						{ on = SellHelmets, sub = storage.helmets, cat = 'helmet', strip = 8 },
+					}
+					for _, g in groups do
+						if g.on.Enabled and type(g.sub) == 'table' then
+							for id, item in pairs(g.sub) do
+								local rank = RARITY[fv(item, 'rarity')]
+								local eq = item.equipped
+								local equipped = eq == true or (type(eq) == 'table' and (eq.q or eq.e or eq.q2 or eq.e2))
+								if rank and rank <= maxR and not (KeepEquipped.Enabled and equipped) then
+									table.insert(toSell[g.cat], tostring(id):sub(g.strip))
+								end
+							end
+						end
+					end
+					if #toSell.weapon + #toSell.ability + #toSell.chest + #toSell.helmet > 0 then
+						sellEvt:FireServer(toSell)
+					end
+				end)
+				task.wait(SellInterval.Value)
+			until not AutoSell.Enabled
+		end,
+	})
+	SellWeapons = AutoSell:CreateToggle({ Name = 'Sell Weapons', Default = true })
+	SellAbilities = AutoSell:CreateToggle({ Name = 'Sell Abilities', Default = false })
+	SellChests = AutoSell:CreateToggle({ Name = 'Sell Chests (armor)', Default = true })
+	SellHelmets = AutoSell:CreateToggle({ Name = 'Sell Helmets', Default = true })
+	MaxRarity = AutoSell:CreateDropdown({ Name = 'Max Rarity to Sell',
+		List = { 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Divine' }, Default = 'Rare',
+		Tooltip = 'Sells items of this rarity and everything below it.' })
+	KeepEquipped = AutoSell:CreateToggle({ Name = 'Keep Equipped', Default = true,
+		Tooltip = 'Never sell items you currently have equipped.' })
+	SellInterval = AutoSell:CreateSlider({ Name = 'Sell Interval', Min = 1, Max = 30, Default = 5, Suffix = 's' })
+end)
+
+-- ── Auto Equip Best ──────────────────────────────────────────────────────────
+run(function()
+	local AutoEquip, EquipClass, EquipInterval
+	local function power(item)
+		local stat = EquipClass.Value == 'Mage' and 'spellPower' or 'physicalPower'
+		return tonumber(fv(item, stat)) or 0
+	end
+	AutoEquip = vain.Categories.Utility:CreateModule({
+		Name = 'Auto Equip Best',
+		Tooltip = 'Equips your highest-power gear for the chosen class (Warrior = physical power, Mage = spell power).',
+		Function = function(callback)
+			if not callback then return end
+			local getStorage = remote('getPlayerStorage')
+			local equip = remote('equipItem')
+			repeat
+				pcall(function()
+					if not (getStorage and equip) then return end
+					local storage = getStorage:InvokeServer()
+					if type(storage) ~= 'table' then return end
+					local groups = {
+						{ sub = storage.weapons, cat = 'weapon', strip = 8 },
+						{ sub = storage.chests, cat = 'chest', strip = 7 },
+						{ sub = storage.helmets, cat = 'helmet', strip = 8 },
+					}
+					for _, g in groups do
+						if type(g.sub) == 'table' then
+							local bestId, bestPow, bestEq
+							for id, item in pairs(g.sub) do
+								local p = power(item)
+								if not bestPow or p > bestPow then
+									bestId, bestPow, bestEq = tostring(id):sub(g.strip), p, item.equipped
+								end
+							end
+							if bestId and bestEq ~= true then
+								equip:InvokeServer(g.cat, bestId)
+							end
+						end
+					end
+				end)
+				task.wait(EquipInterval.Value)
+			until not AutoEquip.Enabled
+		end,
+	})
+	EquipClass = AutoEquip:CreateDropdown({ Name = 'Class', List = { 'Warrior', 'Mage' }, Default = 'Warrior',
+		Tooltip = 'Warrior maximizes physical power; Mage maximizes spell power.' })
+	EquipInterval = AutoEquip:CreateSlider({ Name = 'Equip Interval', Min = 1, Max = 30, Default = 5, Suffix = 's' })
+end)
+
+--VAINEOF
