@@ -252,11 +252,12 @@ run(function()
 end)
 
 -- ── Auto Start (begin the run) ─────────────────────────────────────────
--- When you load into a dungeon the host presses a big green START button to begin.
--- We watch for that button (the 'startButton' TextButton / any onscreen 'START') and,
--- while it's showing, fire the same remotes it does (startDungeon / startBossRaid).
--- Once the run begins the button hides, so it stops on its own. Host only (the server
--- ignores it for non-hosts).
+-- Loading into a dungeon the game shows a READY button, then the host a big green
+-- START button - both are ScreenGuis cloned into PlayerGui named 'readyButton' /
+-- 'startButton' (the label reads 'Start', not exactly 'START', so we match by the
+-- GUI name, not the text). We firesignal every button inside them (runs whatever click
+-- handler the game wired) and also fire the readyUp/start remotes. They vanish once the
+-- run begins, so it stops on its own; the server ignores host-only actions for others.
 run(function()
 	local AutoStart
 	local function onScreen(inst)
@@ -268,30 +269,42 @@ run(function()
 		end
 		return false
 	end
-	local function startVisible()
-		local pg = lplr:FindFirstChild('PlayerGui')
-		if not pg then return false end
-		for _, gui in pg:GetDescendants() do
-			if gui:IsA('GuiButton') then
-				local isStart = gui.Name == 'startButton' or (gui:IsA('TextButton') and gui.Text == 'START')
-				if isStart and onScreen(gui) then return true end
+	-- firesignal every visible button inside a named ScreenGui in PlayerGui.
+	local function clickGui(pg, name)
+		local gui = pg:FindFirstChild(name)
+		if not gui then return false end
+		local fired = false
+		for _, g in gui:GetDescendants() do
+			if g:IsA('GuiButton') and onScreen(g) then
+				pcall(function() firesignal(g.MouseButton1Click) end)
+				pcall(function() firesignal(g.Activated) end)
+				fired = true
 			end
 		end
-		return false
+		return fired
 	end
 	AutoStart = vain.Categories.Blatant:CreateModule({
 		Name = 'Auto Start',
-		Tooltip = 'Automatically begins the run the moment the in-dungeon START button appears (host only). Stops itself once the dungeon has started.',
+		Tooltip = 'Auto-readies and clicks the in-dungeon START button the moment it appears so the run begins automatically. Stops itself once the run has started.',
 		Function = function(callback)
 			if not callback then return end
 			repeat
+				local acted = false
 				pcall(function()
-					if startVisible() then
-						local sd = remote('startDungeon'); if sd then sd:FireServer() end
-						local sb = remote('startBossRaid'); if sb then sb:FireServer() end
+					if not firesignal then return end
+					local pg = lplr:FindFirstChild('PlayerGui')
+					if not pg then return end
+					-- ready up first (if the ready prompt shows), then start
+					if clickGui(pg, 'readyButton') then acted = true end
+					if clickGui(pg, 'startButton') then acted = true end
+					if acted then
+						-- fire the matching remotes too, in case the button's handler isn't on the click signal
+						local ru = remote('readyUp'); if ru then pcall(function() ru:FireServer() end) end
+						local sd = remote('startDungeon'); if sd then pcall(function() sd:FireServer() end) end
+						local sb = remote('startBossRaid'); if sb then pcall(function() sb:FireServer() end) end
 					end
 				end)
-				task.wait(0.5)
+				task.wait(acted and 1.5 or 0.5)
 			until not AutoStart.Enabled
 		end,
 	})
