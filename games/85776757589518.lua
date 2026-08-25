@@ -37,6 +37,50 @@ local function inCombat()
 	return true, char
 end
 
+-- Shared enemy targeting: nearest live mob under an 'enemyFolder' (cached), plus a
+-- helper to turn the character to face it. DQ weapon swings and abilities fire in
+-- the character's LOOK direction, so facing the enemy is what makes them connect.
+local _enemyParts, _enemyScan = {}, 0
+local function scanEnemyParts()
+	_enemyParts = {}
+	pcall(function()
+		for _, d in workspace:GetDescendants() do
+			if d:IsA('Humanoid') and d.Health > 0 then
+				local m = d.Parent
+				if m and m:IsA('Model') and not playersService:GetPlayerFromCharacter(m) and m:FindFirstAncestor('enemyFolder') then
+					local part = m.PrimaryPart or m:FindFirstChild('HumanoidRootPart') or m:FindFirstChildWhichIsA('BasePart')
+					if part then table.insert(_enemyParts, part) end
+				end
+			end
+		end
+	end)
+	_enemyScan = os.clock()
+end
+local function nearestEnemyPart(pos)
+	if os.clock() - _enemyScan > 1 or #_enemyParts == 0 then scanEnemyParts() end
+	local best, bestDist
+	for i = #_enemyParts, 1, -1 do
+		local part = _enemyParts[i]
+		if not (part and part.Parent) then
+			table.remove(_enemyParts, i)
+		else
+			local dist = (part.Position - pos).Magnitude
+			if not bestDist or dist < bestDist then best, bestDist = part, dist end
+		end
+	end
+	return best
+end
+-- rotate the character to face the nearest enemy (horizontal), staying in place.
+local function faceNearest()
+	local char = lplr.Character
+	local hrp = char and char:FindFirstChild('HumanoidRootPart')
+	if not hrp then return end
+	local part = nearestEnemyPart(hrp.Position)
+	if part and (part.Position - hrp.Position).Magnitude > 0.5 then
+		hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(part.Position.X, hrp.Position.Y, part.Position.Z))
+	end
+end
+
 -- A simple toggle that fires a no-arg remote on a loop (server ignores it when
 -- the action isn't valid, so this is safe to leave running).
 local function looper(category, name, tooltip, remoteName, interval, gate)
@@ -73,6 +117,7 @@ run(function()
 				pcall(function()
 					local ok, char = inCombat()
 					if not ok then return end
+					faceNearest() -- point at the enemy so the swing lands
 					local weapon
 					for _, c in char:GetChildren() do
 						if c:IsA('Accessory') and c:FindFirstChild('Weapon') then weapon = c break end
@@ -105,6 +150,7 @@ run(function()
 				pcall(function()
 					local ok = inCombat()
 					if not (ok and abilityUsed) then return end
+					faceNearest() -- point at the enemy so directional abilities go the right way
 					for _, slot in { 'q', 'e' } do
 						for _, child in lplr.Backpack:GetChildren() do
 							if child:FindFirstChild('abilitySlot') and child.abilitySlot.Value == slot then
@@ -380,10 +426,17 @@ run(function()
 					if target and part then
 						local busy = char:FindFirstChild('busyCasting')
 						if UseTeleport.Enabled then
-							local goal = part.Position + Vector3.new(0, EnemyOffset.Value, 0)
-							hrp.CFrame = CFrame.new(goal, Vector3.new(part.Position.X, goal.Y, part.Position.Z))
+							-- stand a few studs from the enemy (still in melee range) and FACE
+							-- it, so the swing + directional abilities land. Teleporting exactly
+							-- onto it would leave the look direction undefined.
+							local ep = part.Position
+							local dir = (hrp.Position - ep) * Vector3.new(1, 0, 1)
+							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
+							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
+							hrp.CFrame = CFrame.lookAt(myPos, Vector3.new(ep.X, myPos.Y, ep.Z))
 						else
 							hum:Move((part.Position - hrp.Position) * Vector3.new(1, 0, 1))
+							faceNearest()
 						end
 						if not (busy and busy.Value ~= false) then
 							swing(char, weaponUsed)
