@@ -426,26 +426,28 @@ run(function()
 						end
 						return
 					end
-					hum.PlatformStand = false
 
 					local target, part = nearestEnemy(hrp.Position)
 					if target and part then
 						local busy = char:FindFirstChild('busyCasting')
 						if UseTeleport.Enabled then
-							-- hover beside the enemy, FACE it in full 3D (pitch down so the swing
-							-- travels into it, not over its head), and ANCHOR so we hold the hover
-							-- instead of falling back down into melee.
+							-- hover beside the enemy and FACE it in full 3D (pitch on X AND Y so
+							-- swing + abilities travel INTO it, not over its head).
 							local ep = part.Position
 							local dir = (hrp.Position - ep) * Vector3.new(1, 0, 1)
 							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
 							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
 							hrp.Anchored = false
-							-- horizontal facing keeps the character upright (no Y-axis jitter);
-							-- at a low Attack Height the enemy is level with you so it still hits.
-							hrp.CFrame = CFrame.lookAt(myPos, Vector3.new(ep.X, myPos.Y, ep.Z))
+							-- PlatformStand disables the Humanoid's auto-upright, so the pitched
+							-- look-at HOLDS instead of snapping back every frame (that snap-back
+							-- was the "Y axis is buggy" jitter). It is NOT anchoring, so the game
+							-- still sees us as a live target and combat works both ways.
+							hum.PlatformStand = true
+							hrp.CFrame = CFrame.lookAt(myPos, ep)
 							hrp.AssemblyLinearVelocity = Vector3.zero
 						else
 							hrp.Anchored = false
+							hum.PlatformStand = false
 							hum:Move((part.Position - hrp.Position) * Vector3.new(1, 0, 1))
 							faceNearest()
 						end
@@ -456,6 +458,7 @@ run(function()
 					else
 						-- room clear: unanchor and nudge forward to trigger the next room
 						hrp.Anchored = false
+						hum.PlatformStand = false
 						hum:Move(hrp.CFrame.LookVector * Vector3.new(1, 0, 1))
 					end
 				end)
