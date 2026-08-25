@@ -41,31 +41,48 @@ end
 -- ── Auto Start Dungeon ───────────────────────────────────────────────────────
 run(function()
 	local AutoStart, Dungeon, Difficulty, Hardcore, FriendsOnly, WaveDefence, BestDungeon, Buffer
-	-- DQ dungeons by ascending min level (approx; Best Dungeon picks highest <= your level).
+	-- Dungeon names for the dropdown. Level requirements are NOT hardcoded (they
+	-- change across updates) — Best Dungeon and the level box read each dungeon's real
+	-- minLevelReq live from the lobby UI (queueGui.chooseDungeon.backgroundFillLeft).
 	local DUNGEONS = {
-		{ name = 'Desert Temple', minLevel = 1 },
-		{ name = 'Winter Outpost', minLevel = 8 },
-		{ name = 'The Underworld', minLevel = 16 },
-		{ name = 'Samurai Palace', minLevel = 24 },
-		{ name = 'The Canals', minLevel = 34 },
-		{ name = "King's Castle", minLevel = 44 },
-		{ name = 'Aquatic Temple', minLevel = 54 },
-		{ name = 'Enchanted Forest', minLevel = 64 },
-		{ name = 'Volcanic Chambers', minLevel = 76 },
-		{ name = 'Ghastly Harbor', minLevel = 88 },
-		{ name = 'Pirate Island', minLevel = 102 },
-		{ name = 'Steampunk Sewers', minLevel = 118 },
-		{ name = 'Northern Lands', minLevel = 138 },
-		{ name = 'Orbital Outpost', minLevel = 160 },
+		'Desert Temple', 'Winter Outpost', 'The Underworld', 'Samurai Palace', 'The Canals',
+		"King's Castle", 'Aquatic Temple', 'Enchanted Forest', 'Volcanic Chambers', 'Ghastly Harbor',
+		'Pirate Island', 'Steampunk Sewers', 'Northern Lands', 'Orbital Outpost',
 	}
 	local names = {}
-	for _, d in DUNGEONS do table.insert(names, d.name) end
+	for _, n in DUNGEONS do table.insert(names, n) end
+	local function dungeonScroll()
+		local pg = lplr:FindFirstChild('PlayerGui')
+		local qg = pg and pg:FindFirstChild('queueGui')
+		local cd = qg and qg:FindFirstChild('chooseDungeon')
+		local bfl = cd and cd:FindFirstChild('backgroundFillLeft')
+		return bfl and bfl:FindFirstChild('ScrollingFrame')
+	end
+	-- each dungeon element carries mapName.minLevelReq.Value (the level to create it)
+	local function minLevelOf(name)
+		local sf = dungeonScroll()
+		local el = sf and sf:FindFirstChild(name)
+		local mn = el and el:FindFirstChild('mapName')
+		local mlr = mn and mn:FindFirstChild('minLevelReq')
+		return mlr and tonumber(mlr.Value) or nil
+	end
 	local function bestDungeonName()
-		local lvl, best = playerLevel(), nil
-		for _, d in DUNGEONS do
-			if d.minLevel <= lvl and (not best or d.minLevel > best.minLevel) then best = d end
+		local sf = dungeonScroll()
+		local lvl = playerLevel()
+		local best, bestReq
+		if sf then
+			for _, el in sf:GetChildren() do
+				if el:IsA('GuiObject') then
+					local mn = el:FindFirstChild('mapName')
+					local mlr = mn and mn:FindFirstChild('minLevelReq')
+					local req = mlr and tonumber(mlr.Value)
+					if req and req <= lvl and (not bestReq or req > bestReq) then
+						best, bestReq = el.Name, req
+					end
+				end
+			end
 		end
-		return best and best.name or names[1]
+		return best or (Dungeon and Dungeon.Value) or names[1]
 	end
 
 	AutoStart = vain.Categories.Blatant:CreateModule({
@@ -81,18 +98,19 @@ run(function()
 				pcall(function()
 					if not (createLobby and startDungeon) then return end
 					local name = BestDungeon.Enabled and bestDungeonName() or Dungeon.Value
-					-- party join level requirement: the dungeon's own min level, so the server
-					-- always accepts it (that is exactly what the level box defaults to).
-					local levelReq = 1
-					for _, d in DUNGEONS do if d.name == name then levelReq = d.minLevel break end end
+					-- level requirement handed to createLobby: read the dungeon's real minLevelReq
+					-- live so it always matches (falls back to your level if the UI isn't up yet).
+					local levelReq = minLevelOf(name) or playerLevel()
 					-- createLobby(name, difficulty, levelReq, hardcore, friendsOnly/private, waveDefence)
 					-- returns true ONLY when the party is actually created -> start only then.
 					local ok = createLobby:InvokeServer(name, Difficulty.Value, levelReq,
 						Hardcore.Enabled, FriendsOnly.Enabled, WaveDefence.Enabled)
 					if ok ~= true then
 						if not notified and vain and vain.CreateNotification then
+							local req = minLevelOf(name)
 							vain:CreateNotification('Vain DQ', 'Create party failed for "' .. tostring(name)
-								.. '" (' .. tostring(Difficulty.Value) .. '). Are you high enough level?', 5, 'alert')
+								.. '" (' .. tostring(Difficulty.Value) .. ').' ..
+								(req and (' Needs level ' .. req .. ' — you are ' .. playerLevel() .. '.') or ''), 5, 'alert')
 							notified = true
 						end
 						return
