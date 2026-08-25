@@ -94,7 +94,7 @@ run(function()
 	Dungeon = AutoStart:CreateDropdown({ Name = 'Dungeon', List = names, Default = names[1],
 		Tooltip = 'Which dungeon to run (ignored when Best Dungeon is on).' })
 	Difficulty = AutoStart:CreateDropdown({ Name = 'Difficulty',
-		List = { 'Easy', 'Medium', 'Hard', 'Insane', 'Nightmare', 'Master' }, Default = 'Hard' })
+		List = { 'Easy', 'Medium', 'Hard', 'Insane', 'Nightmare' }, Default = 'Hard' })
 	BestDungeon = AutoStart:CreateToggle({ Name = 'Best Dungeon', Default = false,
 		Tooltip = 'Auto-pick the highest-level dungeon you can currently enter.' })
 	Hardcore = AutoStart:CreateToggle({ Name = 'Hardcore', Default = false })

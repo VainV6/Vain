@@ -176,7 +176,14 @@ end)
 -- threshold it floats high out of reach and waits to recover, so it never dies.
 -- When a room is clear it walks forward to trigger the next one.
 run(function()
-	local AutoFarm, SafeHP, RecoverHP, HoverHeight, EnemyOffset, FarmDelay, UseTeleport
+	local AutoFarm, SafeHP, RecoverHP, HoverHeight, EnemyOffset, FarmDelay, UseTeleport, HealSwap
+
+	-- storage items may store a field as a plain value or as {Value=x}.
+	local function fv(item, key)
+		local v = item[key]
+		if type(v) == 'table' and v.Value ~= nil then v = v.Value end
+		return v
+	end
 
 	local function equippedWeapon(char)
 		for _, c in char:GetChildren() do
@@ -243,6 +250,84 @@ run(function()
 		return best, bestPart
 	end
 
+	-- Heal-swap: when HP is low, if the inventory has heal spell(s), save the current
+	-- loadout, switch to the best spell-power (mage) weapon + 1-2 heal spells, cast them
+	-- to full HP while floating safe, then restore the original loadout. Returns false
+	-- (so the caller falls back to float-and-regen) if there's no heal spell.
+	local function healSwap()
+		local getStorage, equip, abilityUsed = remote('getPlayerStorage'), remote('equipItem'), remote('abilityUsed')
+		if not (getStorage and equip and abilityUsed) then return false end
+		local storage = getStorage:InvokeServer()
+		if type(storage) ~= 'table' or type(storage.abilities) ~= 'table' then return false end
+
+		-- heal spells in inventory (detected by name, e.g. "Chain Heal" / "Universal Heal")
+		local heals = {}
+		for id, item in pairs(storage.abilities) do
+			if tostring(fv(item, 'name') or ''):lower():find('heal') then
+				table.insert(heals, tostring(id):sub(9))
+			end
+		end
+		if #heals == 0 then return false end
+
+		-- remember the current loadout (weapon + q/e abilities), whatever set it is
+		local savedWeapon, savedQ, savedE
+		if type(storage.weapons) == 'table' then
+			for id, item in pairs(storage.weapons) do
+				if item.equipped == true then savedWeapon = tostring(id):sub(8) break end
+			end
+		end
+		for id, item in pairs(storage.abilities) do
+			local eq = item.equipped
+			if type(eq) == 'table' then
+				if eq.q then savedQ = tostring(id):sub(9) end
+				if eq.e then savedE = tostring(id):sub(9) end
+			end
+		end
+
+		-- switch to the best spell-power weapon + the heal spell(s)
+		local bestW, bestSP
+		if type(storage.weapons) == 'table' then
+			for id, item in pairs(storage.weapons) do
+				local sp = tonumber(fv(item, 'spellPower')) or 0
+				if not bestSP or sp > bestSP then bestW, bestSP = tostring(id):sub(8), sp end
+			end
+		end
+		if bestW then pcall(function() equip:InvokeServer('weapon', bestW) end) end
+		pcall(function() equip:InvokeServer('ability', heals[1], 'q') end)
+		if #heals >= 2 then pcall(function() equip:InvokeServer('ability', heals[2], 'e') end) end
+		task.wait(0.4)
+
+		-- cast the heals until full HP (staying floated out of reach)
+		local t0 = os.clock()
+		while AutoFarm.Enabled and os.clock() - t0 < 12 do
+			local char = lplr.Character
+			local hum = char and char:FindFirstChildOfClass('Humanoid')
+			local hrp = char and char:FindFirstChild('HumanoidRootPart')
+			if not (hum and hrp) then break end
+			if hum.MaxHealth > 0 and hum.Health / hum.MaxHealth >= 0.98 then break end
+			hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y + HoverHeight.Value, hrp.Position.Z)
+			for _, slot in { 'q', 'e' } do
+				for _, child in lplr.Backpack:GetChildren() do
+					if child:FindFirstChild('abilitySlot') and child.abilitySlot.Value == slot then
+						local cd = child:FindFirstChild('cooldown')
+						if not (cd and cd.Value > 0) then
+							local le = child:FindFirstChild('localEvent'); if le then le:Fire() end
+							pcall(function() abilityUsed:FireServer(slot, child) end)
+						end
+						break
+					end
+				end
+			end
+			task.wait(0.2)
+		end
+
+		-- restore the original loadout (mage or warrior — whatever it was)
+		if savedWeapon then pcall(function() equip:InvokeServer('weapon', savedWeapon) end) end
+		if savedQ then pcall(function() equip:InvokeServer('ability', savedQ, 'q') end) end
+		if savedE then pcall(function() equip:InvokeServer('ability', savedE, 'e') end) end
+		return true
+	end
+
 	AutoFarm = vain.Categories.Blatant:CreateModule({
 		Name = 'Auto Farm',
 		Tooltip = 'Clears the whole dungeon automatically: kills every enemy with your weapon + Q/E, and floats to safety to recover HP so you never die. Teleports onto enemies (may trip anti-cheat on some servers).',
@@ -266,6 +351,13 @@ run(function()
 					if retreating then
 						hum.PlatformStand = true
 						hrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y + HoverHeight.Value, hrp.Position.Z)
+						-- heal-swap first (heals to full + restores loadout); if it can't
+						-- (no heal spell owned) fall back to waiting for natural regen.
+						if HealSwap.Enabled and healSwap() then
+							retreating = false
+							hum.PlatformStand = false
+							return
+						end
 						if hpFrac >= math.min(RecoverHP.Value / 100, 0.98) then
 							retreating = false
 							hum.PlatformStand = false
@@ -312,6 +404,8 @@ run(function()
 		Tooltip = 'Time between farm ticks (attack + reposition).' })
 	UseTeleport = AutoFarm:CreateToggle({ Name = 'Teleport to Enemies', Default = true,
 		Tooltip = 'On: instantly reposition onto each enemy (fast, may trip anti-cheat). Off: walk to them (slower, safer).' })
+	HealSwap = AutoFarm:CreateToggle({ Name = 'Heal Swap when low', Default = true,
+		Tooltip = 'When low, if you own a heal spell: swap to best spell-power weapon + 1-2 heals, heal to full, then restore your set. Requires the game to allow mid-run equipping.' })
 end)
 
 --VAINEOF
