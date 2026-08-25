@@ -251,6 +251,52 @@ run(function()
 	})
 end)
 
+-- ── Auto Start (begin the run) ─────────────────────────────────────────
+-- When you load into a dungeon the host presses a big green START button to begin.
+-- We watch for that button (the 'startButton' TextButton / any onscreen 'START') and,
+-- while it's showing, fire the same remotes it does (startDungeon / startBossRaid).
+-- Once the run begins the button hides, so it stops on its own. Host only (the server
+-- ignores it for non-hosts).
+run(function()
+	local AutoStart
+	local function onScreen(inst)
+		local node = inst
+		while node and node ~= game do
+			if node:IsA('GuiObject') and node.Visible == false then return false end
+			if node:IsA('LayerCollector') then return node.Enabled ~= false end
+			node = node.Parent
+		end
+		return false
+	end
+	local function startVisible()
+		local pg = lplr:FindFirstChild('PlayerGui')
+		if not pg then return false end
+		for _, gui in pg:GetDescendants() do
+			if gui:IsA('GuiButton') then
+				local isStart = gui.Name == 'startButton' or (gui:IsA('TextButton') and gui.Text == 'START')
+				if isStart and onScreen(gui) then return true end
+			end
+		end
+		return false
+	end
+	AutoStart = vain.Categories.Blatant:CreateModule({
+		Name = 'Auto Start',
+		Tooltip = 'Automatically begins the run the moment the in-dungeon START button appears (host only). Stops itself once the dungeon has started.',
+		Function = function(callback)
+			if not callback then return end
+			repeat
+				pcall(function()
+					if startVisible() then
+						local sd = remote('startDungeon'); if sd then sd:FireServer() end
+						local sb = remote('startBossRaid'); if sb then sb:FireServer() end
+					end
+				end)
+				task.wait(0.5)
+			until not AutoStart.Enabled
+		end,
+	})
+end)
+
 -- ── Auto Farm (full dungeon clear) ───────────────────────────────────────────
 -- Finds the nearest live enemy, positions ABOVE it (so ground melee whiffs),
 -- and bursts it with weapon swing + both abilities. Safety: if HP drops below the
