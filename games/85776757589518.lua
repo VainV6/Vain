@@ -144,27 +144,33 @@ looper(vain.Categories.Utility, 'Auto Return to Lobby',
 -- replayDungeon with the correct payload (re-equips gear, advances tier, etc.).
 run(function()
 	local AutoReplay
+
+	-- The dungeon is "over" when the results screen is up — which happens BOTH on a
+	-- boss kill and on a hardcore wipe — or when the boss room's dungeonFinished flag
+	-- is set. Gate on that so it never replays mid-run.
+	local function dungeonOver()
+		local pg = lplr:FindFirstChild('PlayerGui')
+		local holder = pg and pg:FindFirstChild('rewardGuiHolder')
+		if holder and #holder:GetChildren() > 0 then return true end
+		local df = workspace:FindFirstChild('dungeonFinished', true)
+		if df and df:IsA('BoolValue') and df.Value == true then return true end
+		return false
+	end
+
 	AutoReplay = vain.Categories.Blatant:CreateModule({
 		Name = 'Auto Replay',
-		Tooltip = 'Clicks the Replay button when a dungeon finishes, to farm continuously. Uses the game\'s own replay so gear/tier are handled correctly.',
+		Tooltip = 'Once the dungeon is over (final boss defeated, or the party wiped in hardcore), clicks the real Replay button so the game handles gear/tier correctly.',
 		Function = function(callback)
 			if not callback then return end
 			repeat
 				pcall(function()
+					if not (firesignal and dungeonOver()) then return end
 					local pg = lplr:FindFirstChild('PlayerGui')
-					if not pg or not firesignal then return end
-					for _, d in pg:GetDescendants() do
-						if (d:IsA('TextButton') or d:IsA('ImageButton')) and d.Visible then
-							local nm = d.Name:lower()
-							local pn = (d.Parent and d.Parent.Name or ''):lower()
-							if nm:find('replay') or pn:find('replay') then
-								firesignal(d.MouseButton1Click)
-								break
-							end
-						end
-					end
+					local btn = pg and pg:FindFirstChild('ReplayDungeonButton', true)
+					if btn and not btn:IsA('GuiButton') then btn = btn:FindFirstChildWhichIsA('GuiButton', true) end
+					if btn and btn:IsA('GuiButton') then firesignal(btn.MouseButton1Click) end
 				end)
-				task.wait(0.5)
+				task.wait(0.6)
 			until not AutoReplay.Enabled
 		end,
 	})
@@ -221,11 +227,15 @@ run(function()
 	end
 	local function rescan()
 		enemyCache = {}
-		local ok = pcall(function()
+		pcall(function()
 			for _, d in workspace:GetDescendants() do
 				if d:IsA('Humanoid') and d.Health > 0 then
 					local m = d.Parent
-					if m and m:IsA('Model') and not playersService:GetPlayerFromCharacter(m) and enemyPart(m) then
+					-- only real dungeon mobs: a Model living under an 'enemyFolder'
+					-- (NOT town NPCs, players, pets or decorations).
+					if m and m:IsA('Model') and enemyPart(m)
+						and not playersService:GetPlayerFromCharacter(m)
+						and m:FindFirstAncestor('enemyFolder') then
 						table.insert(enemyCache, m)
 					end
 				end
@@ -255,7 +265,7 @@ run(function()
 	-- to full HP while floating safe, then restore the original loadout. Returns false
 	-- (so the caller falls back to float-and-regen) if there's no heal spell.
 	local function healSwap()
-		local getStorage, equip, abilityUsed = remote('getPlayerStorage'), remote('equipItem'), remote('abilityUsed')
+		local getStorage, equip, abilityUsed = remote('reloadInvy'), remote('equipItem'), remote('abilityUsed')
 		if not (getStorage and equip and abilityUsed) then return false end
 		local storage = getStorage:InvokeServer()
 		if type(storage) ~= 'table' or type(storage.abilities) ~= 'table' then return false end

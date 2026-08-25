@@ -135,7 +135,7 @@ run(function()
 		Tooltip = 'Sells items of the chosen categories at or below a rarity threshold. Skips equipped gear.',
 		Function = function(callback)
 			if not callback then return end
-			local getStorage = remote('getPlayerStorage')
+			local getStorage = remote('reloadInvy')
 			local sellEvt = remote('sellItemEvent')
 			repeat
 				pcall(function()
@@ -194,7 +194,7 @@ run(function()
 		Tooltip = 'Equips your highest-power gear for the chosen class (Warrior = physical power, Mage = spell power).',
 		Function = function(callback)
 			if not callback then return end
-			local getStorage = remote('getPlayerStorage')
+			local getStorage = remote('reloadInvy')
 			local equip = remote('equipItem')
 			repeat
 				pcall(function()
