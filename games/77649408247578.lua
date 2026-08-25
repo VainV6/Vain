@@ -40,7 +40,7 @@ end
 
 -- ── Auto Start Dungeon ───────────────────────────────────────────────────────
 run(function()
-	local AutoStart, Dungeon, Difficulty, Hardcore, FriendsOnly, WaveDefence, BestDungeon, Buffer
+	local AutoStart, Dungeon, Difficulty, Hardcore, FriendsOnly, WaveDefence, BestDungeon, BestDifficulty, Buffer
 	-- Dungeon names for the dropdown. Level requirements are per dungeon AND per
 	-- difficulty and change across updates, so we ask the game itself via the
 	-- getDungeonStats remote: getDungeonStats(name) -> { [difficulty] = { levelReq = N } }.
@@ -66,12 +66,30 @@ run(function()
 		local d = st and st[difficulty]
 		return d and tonumber(d.levelReq) or nil
 	end
-	-- highest dungeon you can enter at the chosen difficulty for your level (nil if none).
-	local function bestDungeonName(difficulty)
-		local lvl = playerLevel()
+	local DIFF_ORDER = { 'Easy', 'Medium', 'Insane', 'Nightmare' } -- ascending; only higher dungeons offer Nightmare
+	-- hardest difficulty of `name` you can enter at your level (nil if you can't enter it at all).
+	local function bestDifficultyOf(name, lvl)
+		local best
+		for _, diff in DIFF_ORDER do
+			local req = levelReqFor(name, diff)
+			if req and req <= lvl then best = diff end
+		end
+		return best
+	end
+	-- lowest level a dungeon needs on ANY difficulty = can you set foot in it?
+	local function entryReq(name)
+		local lo
+		for _, diff in DIFF_ORDER do
+			local req = levelReqFor(name, diff)
+			if req and (not lo or req < lo) then lo = req end
+		end
+		return lo
+	end
+	-- highest dungeon you can enter (by its easiest difficulty) for your level (nil if none).
+	local function bestDungeonName(lvl)
 		local best, bestReq
 		for _, n in DUNGEONS do
-			local req = levelReqFor(n, difficulty)
+			local req = entryReq(n)
 			if req and req <= lvl and (not bestReq or req > bestReq) then
 				best, bestReq = n, req
 			end
@@ -91,22 +109,30 @@ run(function()
 			repeat
 				pcall(function()
 					if not (createLobby and startDungeon) then return end
-					local difficulty = Difficulty.Value
-					local name = BestDungeon.Enabled and bestDungeonName(difficulty) or Dungeon.Value
+					local lvl = playerLevel()
+					local name = BestDungeon.Enabled and bestDungeonName(lvl) or Dungeon.Value
 					if not name then
 						if not notified and vain and vain.CreateNotification then
-							vain:CreateNotification('Vain DQ', 'No dungeon available on ' .. tostring(difficulty)
-								.. ' for your level (' .. playerLevel() .. ').', 5, 'alert')
+							vain:CreateNotification('Vain DQ', 'No dungeon is enterable at your level (' .. lvl .. ').', 5, 'alert')
+							notified = true
+						end
+						return
+					end
+					-- Best Difficulty: auto-pick the HARDEST difficulty of this dungeon you can do,
+					-- otherwise use the Difficulty dropdown.
+					local difficulty = BestDifficulty.Enabled and bestDifficultyOf(name, lvl) or Difficulty.Value
+					if not difficulty then
+						if not notified and vain and vain.CreateNotification then
+							vain:CreateNotification('Vain DQ', 'Not high enough level for any difficulty of "' .. tostring(name) .. '".', 5, 'alert')
 							notified = true
 						end
 						return
 					end
 					-- validate level BEFORE trying, so we never spam failed create calls.
 					local req = levelReqFor(name, difficulty)
-					if req and req > playerLevel() then
+					if req and req > lvl then
 						if not notified and vain and vain.CreateNotification then
-							vain:CreateNotification('Vain DQ', '"' .. tostring(name) .. '" on ' .. tostring(difficulty)
-								.. ' needs level ' .. req .. ' - you are ' .. playerLevel() .. '.', 5, 'alert')
+							vain:CreateNotification('Vain DQ', '"' .. tostring(name) .. '" on ' .. tostring(difficulty) .. ' needs level ' .. req .. ' - you are ' .. lvl .. '.', 5, 'alert')
 							notified = true
 						end
 						return
@@ -136,9 +162,12 @@ run(function()
 	Dungeon = AutoStart:CreateDropdown({ Name = 'Dungeon', List = names, Default = names[1],
 		Tooltip = 'Which dungeon to run (ignored when Best Dungeon is on).' })
 	Difficulty = AutoStart:CreateDropdown({ Name = 'Difficulty',
-		List = { 'Easy', 'Medium', 'Hard', 'Insane', 'Nightmare' }, Default = 'Hard' })
+		List = { 'Easy', 'Medium', 'Insane', 'Nightmare' }, Default = 'Insane',
+		Tooltip = 'Used only when Best Difficulty is OFF. Higher dungeons also offer Nightmare.' })
 	BestDungeon = AutoStart:CreateToggle({ Name = 'Best Dungeon', Default = false,
 		Tooltip = 'Auto-pick the highest-level dungeon you can currently enter.' })
+	BestDifficulty = AutoStart:CreateToggle({ Name = 'Best Difficulty', Default = true,
+		Tooltip = 'Auto-pick the HARDEST difficulty of the chosen dungeon you can do (Easy < Medium < Insane < Nightmare). Turn off to force the Difficulty dropdown.' })
 	Hardcore = AutoStart:CreateToggle({ Name = 'Hardcore', Default = false })
 	FriendsOnly = AutoStart:CreateToggle({ Name = 'Friends Only', Default = false })
 	WaveDefence = AutoStart:CreateToggle({ Name = 'Wave Defence', Default = false })
