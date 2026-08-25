@@ -77,7 +77,9 @@ local function faceNearest()
 	if not hrp then return end
 	local part = nearestEnemyPart(hrp.Position)
 	if part and (part.Position - hrp.Position).Magnitude > 0.5 then
-		hrp.CFrame = CFrame.lookAt(hrp.Position, part.Position) -- full 3D: pitches toward the enemy on the Y axis too
+		-- horizontal only: a Humanoid is force-kept upright, so PITCHING the RootPart
+		-- just makes it fight our CFrame every frame (the Y-axis jitter). Keep it level.
+		hrp.CFrame = CFrame.lookAt(hrp.Position, Vector3.new(part.Position.X, hrp.Position.Y, part.Position.Z))
 	end
 end
 
@@ -438,7 +440,9 @@ run(function()
 							dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, 1)
 							local myPos = ep + dir * 4 + Vector3.new(0, EnemyOffset.Value, 0)
 							hrp.Anchored = false
-							hrp.CFrame = CFrame.lookAt(myPos, ep)
+							-- horizontal facing keeps the character upright (no Y-axis jitter);
+							-- at a low Attack Height the enemy is level with you so it still hits.
+							hrp.CFrame = CFrame.lookAt(myPos, Vector3.new(ep.X, myPos.Y, ep.Z))
 							hrp.AssemblyLinearVelocity = Vector3.zero
 						else
 							hrp.Anchored = false
@@ -472,8 +476,8 @@ run(function()
 		Tooltip = 'Come back down and resume once HP recovers to this.' })
 	HoverHeight = AutoFarm:CreateSlider({ Name = 'Retreat Height', Min = 20, Max = 400, Default = 150, Suffix = ' studs',
 		Tooltip = 'How high to float above the map while recovering (out of enemy reach).' })
-	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 8, Suffix = ' studs',
-		Tooltip = 'Studs ABOVE each enemy you hover while killing it — high enough that ground melee whiffs, low enough that your swing/Whirlwind AoE still reach down. If your hits stop landing, lower it; if you still take too much damage, raise it.' })
+	EnemyOffset = AutoFarm:CreateSlider({ Name = 'Attack Height', Min = 0, Max = 30, Default = 2, Suffix = ' studs',
+		Tooltip = 'Studs above each enemy. Keep it LOW (0-3) so you fight at their level and your swing/abilities land (facing is horizontal to avoid the Y-axis jitter). Raise it for safety, but hits start missing since you aim level, not down.' })
 	FarmDelay = AutoFarm:CreateSlider({ Name = 'Loop Delay', Min = 0, Max = 0.5, Default = 0.1, Decimal = 100, Suffix = 's',
 		Tooltip = 'Time between farm ticks (attack + reposition).' })
 	UseTeleport = AutoFarm:CreateToggle({ Name = 'Teleport to Enemies', Default = true,
